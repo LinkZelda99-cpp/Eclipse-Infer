@@ -29,6 +29,7 @@
 #include <QPixmap>
 #include <QIcon>
 #include <QMenu>
+#include <QMenuBar>
 #include <QSystemTrayIcon>
 #include <QCloseEvent>
 #include <QScrollArea>

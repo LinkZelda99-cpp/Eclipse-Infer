@@ -1,0 +1,5 @@
+<RCC>
+    <qresource prefix="/">
+        <file alias="eclipse-logo.png">assets/eclipse-logo.png</file>
+    </qresource>
+</RCC>

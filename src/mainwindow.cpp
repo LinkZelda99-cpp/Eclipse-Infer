@@ -207,6 +207,7 @@ void MainWindow::applyTheme(const QString &theme){
     const Palette p=paletteFor(resolved);
     const QIcon logoIcon(QPixmap::fromImage(eclipseLogoPixmap(128,QColor(p.accent)).toImage()));
     if(m_logoLabel)m_logoLabel->setPixmap(eclipseLogoPixmap(64,QColor(p.accent)));
+    if(m_welcomeLogo)m_welcomeLogo->setPixmap(eclipseLogoPixmap(96,QColor(p.accent)));
     setWindowIcon(logoIcon);
     qApp->setWindowIcon(logoIcon);
     qApp->setStyleSheet(appStyleSheet(resolved));
@@ -263,7 +264,7 @@ void MainWindow::newChat() {
 void MainWindow::showWelcome() {
     if(!m_messages.isEmpty()||m_messageLayout->count()>1)return;
     auto *w=new QWidget(m_messageHost);auto *l=new QVBoxLayout(w);l->setContentsMargins(12,65,12,45);l->setSpacing(13);l->setAlignment(Qt::AlignHCenter|Qt::AlignVCenter);
-    auto *mark=new QLabel("◉",w);mark->setAlignment(Qt::AlignCenter);mark->setStyleSheet("font-size:52px;color:#58a6ff;");l->addWidget(mark);
+    m_welcomeLogo=new QLabel(w);m_welcomeLogo->setAlignment(Qt::AlignCenter);m_welcomeLogo->setFixedSize(96,96);m_welcomeLogo->setScaledContents(true);m_welcomeLogo->setPixmap(eclipseLogoPixmap(96,QColor(paletteFor(QSettings().value("theme","Eclipse Dark").toString()=="System"?(QGuiApplication::styleHints()->colorScheme()==Qt::ColorScheme::Light?"Light":"Eclipse Dark"):QSettings().value("theme","Eclipse Dark").toString()).accent)));l->addWidget(m_welcomeLogo,0,Qt::AlignHCenter);
     auto *title=new QLabel("Your AI. Your machine.",w);title->setAlignment(Qt::AlignCenter);title->setStyleSheet("font-size:30px;font-weight:650;");l->addWidget(title);
     auto *sub=new QLabel("A quieter, more focused home for your local models.",w);sub->setAlignment(Qt::AlignCenter);sub->setStyleSheet("color:#8d9bb0;font-size:14px;");l->addWidget(sub);
     auto *hint=new QLabel("Choose a model above and ask it anything.",w);hint->setAlignment(Qt::AlignCenter);hint->setStyleSheet("color:#8d9bb0;font-size:11px;");l->addWidget(hint);m_messageLayout->insertWidget(0,w);

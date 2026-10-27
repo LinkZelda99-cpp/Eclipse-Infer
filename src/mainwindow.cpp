@@ -19,7 +19,7 @@
 #include <QTextBrowser>
 #include <QVBoxLayout>
 namespace {
-QString style(bool dark) {
+QString appStyleSheet(bool dark) {
     const QString bg=dark?"#0b0e14":"#f4f6fa", panel=dark?"#111722":"#ffffff";
     const QString raised=dark?"#171f2c":"#e9edf5", fg=dark?"#e7edf7":"#182235";
     const QString muted=dark?"#8d9bb0":"#667085", border=dark?"#263246":"#d7deea";
@@ -53,7 +53,7 @@ MainWindow::MainWindow(QWidget *parent):QMainWindow(parent) {
         m_status->setStyleSheet(QString("color:%1;font-size:11px;").arg(ok?"#43c78b":"#e58c80"));
     });
     connect(&m_ollama,&OllamaClient::tokenReceived,this,[this](const QString &part){
-        if(m_messages.isEmpty()||m_messages.last().role!="assistant")m_messages.append({"assistant",{}});
+        if(m_messages.isEmpty()||m_messages.last().role!="assistant")m_messages.append(Message{"assistant", QString{}});
         m_messages.last().content+=part;
         if(m_streamView)m_streamView->setMarkdown(m_messages.last().content);
         m_scroll->verticalScrollBar()->setValue(m_scroll->verticalScrollBar()->maximum());
@@ -117,7 +117,7 @@ void MainWindow::buildUi() {
     connect(m_send,&QPushButton::clicked,this,&MainWindow::sendMessage);connect(m_input,&QLineEdit::returnPressed,this,&MainWindow::sendMessage);
     outer->addWidget(main,1);setCentralWidget(root);
 }
-void MainWindow::applyTheme(bool dark){m_dark=dark;qApp->setStyleSheet(style(dark));m_theme->setText(dark?"☼  Light mode":"◐  Dark mode");}
+void MainWindow::applyTheme(bool dark){m_dark=dark;qApp->setStyleSheet(appStyleSheet(dark));m_theme->setText(dark?"☼  Light mode":"◐  Dark mode");}
 void MainWindow::refreshModels(){m_status->setText("●  Checking Ollama…");m_ollama.refreshModels();}
 void MainWindow::addMessageCard(const QString &role,const QString &content,bool streaming) {
     auto *card=new QFrame(m_messageHost);card->setObjectName("MessageCard");auto *layout=new QVBoxLayout(card);layout->setContentsMargins(16,12,16,12);layout->setSpacing(7);
@@ -129,7 +129,7 @@ void MainWindow::sendMessage() {
     if(m_busy)return;const QString prompt=m_input->text().trimmed();if(prompt.isEmpty())return;
     if(m_models->currentText().isEmpty()||m_models->currentText()=="No models installed"){QMessageBox::information(this,"No model selected","Install a model in Ollama, then press Refresh.");return;}
     if(m_title.isEmpty()){m_title=prompt.simplified();if(m_title.size()>34)m_title=m_title.left(31)+"…";m_chatTitle->setText(m_title);}
-    m_messages.append({"user",prompt});addMessageCard("user",prompt);m_input->clear();
+    m_messages.append(Message{"user", prompt});addMessageCard("user",prompt);m_input->clear();
     addMessageCard("assistant","*Generating…*",true);m_busy=true;m_send->setEnabled(false);m_send->setText("Generating…");m_input->setEnabled(false);
     m_ollama.chat(m_models->currentText(),apiMessages(),m_thinking->isChecked(),m_temperature->value()/10.0,m_context->value());
 }

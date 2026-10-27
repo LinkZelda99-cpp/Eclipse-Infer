@@ -9,7 +9,7 @@ ProviderClient::ProviderClient(QObject *parent) : QObject(parent) {}
 QStringList ProviderClient::providers()
 {
     return {"Ollama (local)", "OpenAI", "OpenRouter", "Groq", "Together AI",
-            "DeepSeek", "Mistral", "LM Studio (local)", "llama.cpp (local)",
+            "DeepSeek", "Mistral", "Anthropic", "Google Gemini", "LM Studio (local)", "llama.cpp (local)",
             "vLLM (local)", "LocalAI", "Custom OpenAI-compatible"};
 }
 
@@ -22,6 +22,8 @@ QString ProviderClient::defaultEndpoint(const QString &provider)
     if (provider == "Together AI") return "https://api.together.xyz/v1";
     if (provider == "DeepSeek") return "https://api.deepseek.com/v1";
     if (provider == "Mistral") return "https://api.mistral.ai/v1";
+    if (provider == "Anthropic") return "https://api.anthropic.com/v1";
+    if (provider == "Google Gemini") return "https://generativelanguage.googleapis.com/v1beta";
     if (provider == "LM Studio (local)") return "http://127.0.0.1:1234/v1";
     if (provider == "llama.cpp (local)") return "http://127.0.0.1:8080/v1";
     if (provider == "vLLM (local)") return "http://127.0.0.1:8000/v1";
@@ -46,15 +48,22 @@ QString ProviderClient::apiUrl(const QString &path) const
 void ProviderClient::refreshModels()
 {
     const bool ollama = m_provider == "Ollama (local)";
-    QNetworkRequest request(QUrl(apiUrl(ollama ? "/api/tags" : "/models")));
+    const bool gemini = m_provider == "Google Gemini";
+    const bool anthropic = m_provider == "Anthropic";
+    QNetworkRequest request(QUrl(apiUrl(ollama ? "/api/tags" : gemini ? "/models?pageSize=100" : "/models")));
     request.setTransferTimeout(10000);
     request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
-    if (!ollama && !m_apiKey.isEmpty())
-        request.setRawHeader("Authorization", QByteArray("Bearer ") + m_apiKey.toUtf8());
+    if (!ollama && !m_apiKey.isEmpty()) {
+        if (anthropic) {
+            request.setRawHeader("x-api-key", m_apiKey.toUtf8());
+            request.setRawHeader("anthropic-version", "2023-06-01");
+        } else if (gemini) request.setRawHeader("x-goog-api-key", m_apiKey.toUtf8());
+        else request.setRawHeader("Authorization", QByteArray("Bearer ") + m_apiKey.toUtf8());
+    }
     if (m_provider == "OpenRouter")
         request.setRawHeader("HTTP-Referer", "https://austinmcdonald.dev");
     auto *reply = m_network.get(request);
-    connect(reply, &QNetworkReply::finished, this, [this, reply, ollama]() {
+    connect(reply, &QNetworkReply::finished, this, [this, reply, ollama, gemini]() {
         const QByteArray body = reply->readAll();
         if (reply->error() != QNetworkReply::NoError) {
             emit connectionChanged(false, QString("Connection failed: %1").arg(reply->errorString()));
@@ -69,10 +78,11 @@ void ProviderClient::refreshModels()
         }
         const QJsonObject root = doc.object();
         QStringList names;
-        const QJsonArray models = root.value(ollama ? "models" : "data").toArray();
+        const QJsonArray models = root.value(ollama ? "models" : gemini ? "models" : "data").toArray();
         for (const auto &value : models) {
             const QJsonObject item = value.toObject();
-            const QString name = item.value(ollama ? "name" : "id").toString();
+            QString name = item.value(ollama ? "name" : gemini ? "name" : "id").toString();
+            if (gemini && name.startsWith("models/")) name.remove(0, 7);
             if (!name.isEmpty()) names << name;
         }
         names.removeDuplicates();
@@ -87,6 +97,8 @@ void ProviderClient::chat(const QString &model, const QJsonArray &messages, bool
 {
     if (m_reply) { emit errorOccurred("A response is already running."); return; }
     const bool ollama = m_provider == "Ollama (local)";
+    const bool anthropic = m_provider == "Anthropic";
+    const bool gemini = m_provider == "Google Gemini";
     QJsonObject payload;
     payload.insert("model", model);
     payload.insert("messages", messages);
@@ -98,16 +110,61 @@ void ProviderClient::chat(const QString &model, const QJsonArray &messages, bool
         options.insert("num_ctx", contextLength);
         payload.insert("think", thinking);
         payload.insert("options", options);
+    } else if (anthropic) {
+        QJsonArray nativeMessages;
+        QString systemPrompt;
+        for (const auto &entry : messages) {
+            const QJsonObject item = entry.toObject();
+            if (item.value("role").toString() == "system") systemPrompt += item.value("content").toString() + "\n";
+            else {
+                QJsonObject nativeItem;
+                nativeItem.insert("role", item.value("role").toString() == "assistant" ? "assistant" : "user");
+                nativeItem.insert("content", item.value("content").toString());
+                nativeMessages.append(nativeItem);
+            }
+        }
+        payload.insert("messages", nativeMessages);
+        payload.insert("max_tokens", qMin(qMax(contextLength, 1024), 8192));
+        if (!systemPrompt.isEmpty()) payload.insert("system", systemPrompt.trimmed());
+        payload.insert("stream", true);
+        payload.remove("temperature");
+    } else if (gemini) {
+        QJsonArray contents;
+        QString systemPrompt;
+        for (const auto &entry : messages) {
+            const QJsonObject item = entry.toObject();
+            const QString role = item.value("role").toString();
+            if (role == "system") { systemPrompt += item.value("content").toString() + "\n"; continue; }
+            QJsonObject content;
+            content.insert("role", role == "assistant" ? "model" : "user");
+            QJsonObject part; part.insert("text", item.value("content").toString());
+            content.insert("parts", QJsonArray{part}); contents.append(content);
+        }
+        payload = QJsonObject{};
+        payload.insert("contents", contents);
+        QJsonObject generation; generation.insert("temperature", temperature);
+        generation.insert("maxOutputTokens", qMin(qMax(contextLength, 1024), 8192));
+        payload.insert("generationConfig", generation);
+        if (!systemPrompt.isEmpty()) {
+            QJsonObject system; system.insert("parts", QJsonArray{QJsonObject{{"text", systemPrompt.trimmed()}}});
+            payload.insert("systemInstruction", system);
+        }
     } else {
         payload.insert("max_tokens", contextLength > 0 ? qMin(contextLength, 8192) : 4096);
         if (thinking) payload.insert("reasoning_effort", "medium");
     }
 
-    QNetworkRequest request(QUrl(apiUrl(ollama ? "/api/chat" : "/chat/completions")));
+    QString chatPath = ollama ? "/api/chat" : anthropic ? "/messages" : gemini ? QString("/models/%1:streamGenerateContent?alt=sse").arg(model) : "/chat/completions";
+    QNetworkRequest request(QUrl(apiUrl(chatPath)));
     request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
     request.setTransferTimeout(0);
-    if (!ollama && !m_apiKey.isEmpty())
-        request.setRawHeader("Authorization", QByteArray("Bearer ") + m_apiKey.toUtf8());
+    if (!ollama && !m_apiKey.isEmpty()) {
+        if (anthropic) {
+            request.setRawHeader("x-api-key", m_apiKey.toUtf8());
+            request.setRawHeader("anthropic-version", "2023-06-01");
+        } else if (gemini) request.setRawHeader("x-goog-api-key", m_apiKey.toUtf8());
+        else request.setRawHeader("Authorization", QByteArray("Bearer ") + m_apiKey.toUtf8());
+    }
     if (m_provider == "OpenRouter") {
         request.setRawHeader("HTTP-Referer", "https://austinmcdonald.dev");
         request.setRawHeader("X-Title", "Eclipse Infer");
@@ -154,6 +211,33 @@ void ProviderClient::processLine(const QByteArray &line)
         const auto doc = QJsonDocument::fromJson(data);
         if (!doc.isObject()) return;
         const QJsonObject root = doc.object();
+        if (m_provider == "Anthropic") {
+            const QString type = root.value("type").toString();
+            const QJsonObject delta = root.value("delta").toObject();
+            if (type == "content_block_delta") {
+                if (delta.value("type").toString() == "thinking_delta") emit thinkingReceived(delta.value("thinking").toString());
+                else emit tokenReceived(delta.value("text").toString());
+            } else if (type == "error") {
+                m_hadError = true;
+                emit errorOccurred(root.value("error").toObject().value("message").toString("Anthropic API error."));
+            }
+            return;
+        }
+        if (m_provider == "Google Gemini") {
+            const QJsonArray candidates = root.value("candidates").toArray();
+            if (!candidates.isEmpty()) {
+                const QJsonArray parts = candidates.first().toObject().value("content").toObject().value("parts").toArray();
+                for (const auto &partValue : parts) {
+                    const QString text = partValue.toObject().value("text").toString();
+                    if (!text.isEmpty()) emit tokenReceived(text);
+                }
+            }
+            if (root.contains("error")) {
+                m_hadError = true;
+                emit errorOccurred(root.value("error").toObject().value("message").toString("Gemini API error."));
+            }
+            return;
+        }
         if (root.contains("error")) {
             m_hadError = true;
             const QJsonObject error = root.value("error").toObject();

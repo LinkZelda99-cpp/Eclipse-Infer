@@ -4,7 +4,7 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_AUTOMOC ON)
 find_package(Qt6 6.5 REQUIRED COMPONENTS Widgets Network)
-qt_add_executable(EclipseInfer src/main.cpp src/mainwindow.h src/mainwindow.cpp src/ollamaclient.h src/ollamaclient.cpp) resources.qrc
+qt_add_executable(EclipseInfer src/main.cpp src/mainwindow.h src/mainwindow.cpp src/ollamaclient.h src/ollamaclient.cpp resources.qrc)
 target_link_libraries(EclipseInfer PRIVATE Qt6::Widgets Qt6::Network)
 if(WIN32)
   set_property(TARGET EclipseInfer APPEND PROPERTY SOURCES app.rc)

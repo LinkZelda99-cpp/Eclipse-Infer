@@ -5,10 +5,11 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 find_package(Qt6 6.5 REQUIRED COMPONENTS Widgets Network)
-qt_add_executable(EclipseInfer src/main.cpp src/mainwindow.h src/mainwindow.cpp src/ollamaclient.h src/ollamaclient.cpp resources.qrc)
+qt_add_executable(EclipseInfer src/main.cpp src/mainwindow.h src/mainwindow.cpp src/providerclient.h src/providerclient.cpp resources.qrc)
 target_link_libraries(EclipseInfer PRIVATE Qt6::Widgets Qt6::Network)
 if(WIN32)
   enable_language(RC)
+  target_link_libraries(EclipseInfer PRIVATE Advapi32)
   # The resource compiler runs from the build directory, so give it the
   # project root as an include/search path for assets referenced by app.rc.
   target_include_directories(EclipseInfer PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")

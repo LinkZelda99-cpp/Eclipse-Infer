@@ -95,7 +95,6 @@ void UpdateManager::downloadUpdate(const QUrl &url, const QString &version) {
     m_downloadVersion = version;
     QNetworkRequest request(url);
     request.setHeader(QNetworkRequest::UserAgentHeader, QStringLiteral("Eclipse-Infer-Updater"));
-    request.setTransferTimeout(120000);
     QNetworkReply *reply = m_network->get(request);
     connect(reply, &QNetworkReply::downloadProgress, this, &UpdateManager::downloadProgress);
     connect(reply, &QNetworkReply::finished, this, [this, reply]() {

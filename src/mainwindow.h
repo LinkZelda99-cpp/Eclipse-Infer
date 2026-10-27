@@ -5,6 +5,7 @@
 #include <QCloseEvent>
 #include <QPointer>
 #include <QStringList>
+class UpdateManager;
 class QComboBox; class QLineEdit; class QPushButton; class QScrollArea; class QSlider;
 class QSpinBox; class QTextBrowser; class QTextEdit; class QVBoxLayout; class QLabel; class QCheckBox; class QSystemTrayIcon;
 class MainWindow final : public QMainWindow {
@@ -27,8 +28,11 @@ private:
     void openConversation(const QString &id);
     void showSettings();
     void showModelManager();
+    void checkForUpdates(bool userInitiated = false);
+    void installDownloadedUpdate(const QString &path, const QString &version);
     QJsonArray apiMessages() const;
     ProviderClient m_providerClient;
+    UpdateManager *m_updateManager{};
     QSystemTrayIcon *m_trayIcon{};
     QComboBox *m_provider{}; QComboBox *m_models{}; QTextEdit *m_input{}; QPushButton *m_send{}; QPushButton *m_codeModeButton{};
     QLabel *m_status{}; QLabel *m_chatTitle{}; QLabel *m_logoLabel{}; QPointer<QLabel> m_welcomeLogo;

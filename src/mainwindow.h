@@ -11,12 +11,12 @@ class MainWindow final : public QMainWindow {
 public:
     explicit MainWindow(QWidget *parent = nullptr);
 private:
-    struct Message { QString role; QString content; };
+    struct Message { QString role; QString content; QString thinking; };
     void buildUi();
     void applyTheme(bool dark);
     void refreshModels();
     void sendMessage();
-    void addMessageCard(const QString &role, const QString &content, bool streaming = false);
+    void addMessageCard(const QString &role, const QString &content, bool streaming = false, const QString &thinking = QString{});
     void newChat();
     void rebuildHistory();
     void showWelcome();
@@ -29,7 +29,7 @@ private:
     QPushButton *m_theme{}; QLabel *m_status{}; QLabel *m_chatTitle{};
     QScrollArea *m_scroll{}; QWidget *m_messageHost{}; QVBoxLayout *m_messageLayout{};
     QSlider *m_temperature{}; QSpinBox *m_context{}; QCheckBox *m_thinking{};
-    QVBoxLayout *m_historyLayout{}; QPointer<QTextBrowser> m_streamView;
+    QVBoxLayout *m_historyLayout{}; QPointer<QTextBrowser> m_streamView; QPointer<QTextBrowser> m_streamThinkingView;
     QList<Message> m_messages;
     QString m_title;
     QString m_conversationId;

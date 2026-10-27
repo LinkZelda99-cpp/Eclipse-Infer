@@ -26,7 +26,7 @@ private:
     QJsonArray apiMessages() const;
     OllamaClient m_ollama;
     QComboBox *m_models{}; QLineEdit *m_input{}; QPushButton *m_send{}; QPushButton *m_codeModeButton{};
-    QLabel *m_status{}; QLabel *m_chatTitle{}; QLabel *m_logoLabel{};
+    QLabel *m_status{}; QLabel *m_chatTitle{}; QLabel *m_logoLabel{}; QLabel *m_welcomeLogo{};
     QScrollArea *m_scroll{}; QWidget *m_messageHost{}; QVBoxLayout *m_messageLayout{};
     QSlider *m_temperature{}; QCheckBox *m_thinking{};
     QVBoxLayout *m_historyLayout{}; QPointer<QTextBrowser> m_streamView; QPointer<QTextBrowser> m_streamThinkingView; QPointer<QPushButton> m_streamThinkingLabel;

@@ -52,7 +52,7 @@ Default endpoints are provided for each preset. The **Custom OpenAI-compatible**
 
 ## Updating Eclipse Infer
 
-Use **Help → Check for Updates** to compare the installed version with the newest stable GitHub Release. The app also checks automatically at most once per day. On Windows, choosing **Download and install** downloads the signed-transport HTTPS release package, closes the app, replaces its portable application files, and restarts it. Other platforms can open the release page to install manually.
+Use **Help → Check for Updates** to compare the installed version with the newest stable GitHub Release. The app also checks automatically at most once per day. On Windows, choosing **Download and install** downloads the HTTPS release package, closes the app, replaces its portable application files, and restarts it. Other platforms can open the release page to install manually.
 
 To publish an update, create and publish a GitHub Release with a semantic version tag such as `v0.2.0`. The `.github/workflows/release-windows.yml` workflow builds a portable Windows package and attaches `EclipseInfer-Windows-x64.zip` to that release. The release tag becomes the version embedded in that build. Users need a published stable release and its generated asset for in-app Windows installation to work.
 

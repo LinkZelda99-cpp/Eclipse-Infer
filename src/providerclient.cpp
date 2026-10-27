@@ -67,7 +67,8 @@ void ProviderClient::refreshModels()
     connect(reply, &QNetworkReply::finished, this, [this, reply, ollama, gemini, requestedProvider]() {
         const QByteArray body = reply->readAll();
         if (reply->error() != QNetworkReply::NoError) {
-            emit connectionChanged(false, QString("Connection failed: %1").arg(reply->errorString()));
+            if (requestedProvider == m_provider)
+                emit connectionChanged(false, QString("Connection failed: %1").arg(reply->errorString()));
             reply->deleteLater();
             return;
         }

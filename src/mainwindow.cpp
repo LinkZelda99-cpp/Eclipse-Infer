@@ -279,7 +279,7 @@ void MainWindow::showSettings() {
     auto *privacy=new QLabel("Chats and preferences are stored locally in this app's settings. Prompts are sent to your local Ollama server.",&dialog);privacy->setWordWrap(true);privacy->setObjectName("Muted");layout->addWidget(privacy);layout->addWidget(clearHistory);
     auto *buttons=new QDialogButtonBox(QDialogButtonBox::Save|QDialogButtonBox::Cancel,&dialog);layout->addWidget(buttons);
     connect(clearHistory,&QPushButton::clicked,&dialog,[this,&dialog](){if(QMessageBox::question(&dialog,"Delete saved chats","Permanently delete all saved conversation history?")==QMessageBox::Yes){QSettings s;const auto ids=s.value("conversationIds").toStringList();for(const auto &id:ids)s.remove("conversations/"+id);s.remove("conversationIds");m_historyIds.clear();rebuildHistory();}});
-    connect(buttons,&QDialogButtonBox::rejected,&dialog,&QDialog::reject);
+    connect(buttons,&QDialogButtonBox::rejected,&dialog,[this,&dialog,&settings](){applyTheme(settings.value("theme","Eclipse Dark").toString());dialog.reject();});
     connect(buttons,&QDialogButtonBox::accepted,&dialog,[this,&dialog,theme,defaultModel,historyLimit](){
         QSettings s;s.setValue("theme",theme->currentText());s.setValue("defaultModel",defaultModel->currentText());s.setValue("historyLimit",historyLimit->currentData().toInt());
         applyTheme(theme->currentText());

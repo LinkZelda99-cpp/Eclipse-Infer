@@ -164,8 +164,7 @@ MainWindow::MainWindow(QWidget *parent):QMainWindow(parent) {
     connect(&m_providerClient,&ProviderClient::modelsReceivedForProvider,this,[this](const QString &provider,const QStringList &models){
         QSettings settings;
         settings.setValue(QString("providers/%1/cachedModels").arg(provider), models);
-        // Cache older results, but never let them replace the currently selected provider's model list.
-        if (!m_provider || m_provider->currentText() != provider) return;
+        // Every provider's discovery result contributes to the unified model catalog.
         // Build one model catalog across every provider we've discovered so far.
         // Each item carries its real provider and model separately, so choosing a model
         // automatically switches the active provider without opening Settings.
@@ -299,8 +298,8 @@ void MainWindow::buildUi() {
     connect(settingsButton,&QPushButton::clicked,this,&MainWindow::showSettings);
     connect(refresh,&QPushButton::clicked,this,&MainWindow::refreshModels);outer->addWidget(side);
     auto *main=new QWidget(root);auto *ml=new QVBoxLayout(main);ml->setContentsMargins(28,18,28,20);ml->setSpacing(13);
-    auto *top=new QHBoxLayout;auto *plabel=new QLabel("PROVIDER",main);plabel->setObjectName("Eyebrow");top->addWidget(plabel); m_provider=new QComboBox(main);m_provider->addItems(ProviderClient::providers());m_provider->setMinimumWidth(150);top->addWidget(m_provider); auto *mlabel=new QLabel("MODEL",main);mlabel->setObjectName("Eyebrow");top->addWidget(mlabel);
-    m_models=new QComboBox(main);m_models->setMinimumWidth(220);m_models->setMaximumWidth(360);m_models->setEditable(true);m_models->setInsertPolicy(QComboBox::NoInsert);m_models->setMaxVisibleItems(18);m_models->setPlaceholderText("Search or choose a model…");m_models->setToolTip("Search models by typing. The list is refreshed from the selected provider.");
+    auto *top=new QHBoxLayout; m_provider=new QComboBox(main);m_provider->addItems(ProviderClient::providers());m_provider->hide(); auto *mlabel=new QLabel("MODEL",main);mlabel->setObjectName("Eyebrow");top->addWidget(mlabel);
+    m_models=new QComboBox(main);m_models->setMinimumWidth(220);m_models->setMaximumWidth(360);m_models->setEditable(true);m_models->setInsertPolicy(QComboBox::NoInsert);m_models->setMaxVisibleItems(18);m_models->setPlaceholderText("Search or choose a model…");m_models->setToolTip("Search and select any discovered model. Eclipse Infer routes requests to its provider automatically.");
     if (m_models->completer()) { m_models->completer()->setCaseSensitivity(Qt::CaseInsensitive); m_models->completer()->setFilterMode(Qt::MatchContains); m_models->completer()->setCompletionMode(QCompleter::PopupCompletion); }
     connect(m_models,qOverload<int>(&QComboBox::currentIndexChanged),this,[this](int index){
         if(index<0 || !m_models->itemData(index,Qt::UserRole).isValid()) return;
@@ -354,15 +353,18 @@ void MainWindow::closeEvent(QCloseEvent *event) {
     event->accept();
 }
 void MainWindow::refreshModels(){
-    const QString provider=m_provider?m_provider->currentText():QSettings().value("provider","Ollama (local)").toString();
-    m_status->setText(QString("●  Connecting to %1…").arg(provider));
-    // Show the last known model list immediately, then refresh it in the background.
-    const QStringList cached=QSettings().value(QString("providers/%1/cachedModels").arg(provider)).toStringList();
-    if(m_models && cached.isEmpty()) {
-        m_status->setText(QString("●  Discovering models for %1…").arg(provider));
+    const QString activeProvider=m_provider?m_provider->currentText():QSettings().value("provider","Ollama (local)").toString();
+    m_status->setText("●  Discovering available models…");
+    // Discover local runtimes automatically. Query hosted providers only when an API key
+    // is configured, avoiding needless authentication failures on a fresh install.
+    for (const QString &provider : ProviderClient::providers()) {
+        const bool local = provider == "Ollama (local)" || provider == "LM Studio (local)" ||
+            provider == "llama.cpp (local)" || provider == "vLLM (local)" || provider == "LocalAI";
+        if (!local && storedApiKey(provider).isEmpty()) continue;
+        m_providerClient.configure(provider, providerEndpoint(provider), storedApiKey(provider));
+        m_providerClient.refreshModels();
     }
-    m_providerClient.configure(provider,providerEndpoint(provider),storedApiKey(provider));
-    m_providerClient.refreshModels();
+    m_providerClient.configure(activeProvider, providerEndpoint(activeProvider), storedApiKey(activeProvider));
 }
 void MainWindow::showModelManager(){ ModelManagerDialog dialog(this); dialog.exec(); refreshModels(); }
 void MainWindow::addMessageCard(const QString &role,const QString &content,bool streaming,const QString &thinking) {
@@ -391,7 +393,7 @@ void MainWindow::addMessageCard(const QString &role,const QString &content,bool 
 }
 void MainWindow::sendMessage() {
     if(m_busy)return;const QString prompt=m_input->toPlainText().trimmed();if(prompt.isEmpty())return;
-    if(m_models->currentText().isEmpty()||!m_models->currentData(Qt::UserRole).isValid()){QMessageBox::information(this,"No model selected","Choose a provider and model. Check Settings for endpoint and API-key configuration.");return;}
+    if(m_models->currentText().isEmpty()||!m_models->currentData(Qt::UserRole).isValid()){QMessageBox::information(this,"No model selected","Choose a model from the selector. Open Model Manager to add a local model, or Settings to configure a hosted provider.");return;}
     if(m_messages.isEmpty()) {
         // Remove the welcome panel as soon as the first message is sent.
         if (m_messageLayout->count() > 1) {
@@ -405,7 +407,9 @@ void MainWindow::sendMessage() {
     m_messages.append(Message{"user", prompt, QString{}});addMessageCard("user",prompt);m_input->clear();
     saveCurrentConversation();
     addMessageCard("assistant","*Generating…*",true);m_busy=true;m_send->setEnabled(false);m_send->setText("Generating…");m_input->setEnabled(false);if(m_stop){m_stop->setEnabled(true);m_stop->setText("Stop");m_stop->setVisible(true);}
-    const QString selectedModel=m_models->currentData(Qt::UserRole+1).toString().isEmpty()?m_models->currentText():m_models->currentData(Qt::UserRole+1).toString();
+    const QString selectedProvider=m_models->currentData(Qt::UserRole).toString();
+    const QString selectedModel=m_models->currentData(Qt::UserRole+1).toString();
+    m_providerClient.configure(selectedProvider,providerEndpoint(selectedProvider),storedApiKey(selectedProvider));
     m_providerClient.chat(selectedModel,apiMessages(),m_thinking->isChecked(),m_temperature->value()/10.0,m_contextLength ? m_contextLength->value() : QSettings().value("contextLength",8192).toInt());
 }
 void MainWindow::newChat() {

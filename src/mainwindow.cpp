@@ -161,13 +161,16 @@ QPushButton *button(const QString &text,const QString &name,QWidget *parent) {
 }
 MainWindow::MainWindow(QWidget *parent):QMainWindow(parent) {
     resize(1280,820); setMinimumSize(880,600); buildUi();
-    connect(&m_providerClient,&ProviderClient::modelsReceived,this,[this](const QStringList &models){
+    connect(&m_providerClient,&ProviderClient::modelsReceivedForProvider,this,[this](const QString &provider,const QStringList &models){
+        QSettings settings;
+        settings.setValue(QString("providers/%1/cachedModels").arg(provider), models);
+        // Cache older results, but never let them replace the currently selected provider's model list.
+        if (!m_provider || m_provider->currentText() != provider) return;
         const QSignalBlocker modelBlocker(m_models);
         const QString old=m_models->currentText(); m_models->clear(); m_models->addItems(models);
-        if(models.isEmpty()) m_models->addItem("No models installed");
+        if(models.isEmpty()) m_models->addItem("No models available");
         else {
-            QSettings settings;
-            const QString preferred=settings.value(QString("defaultModel/%1").arg(m_provider->currentText()),old).toString();
+            const QString preferred=settings.value(QString("defaultModel/%1").arg(provider),old).toString();
             int i=m_models->findText(preferred);
             if(i<0)i=m_models->findText(old);
             if(i>=0)m_models->setCurrentIndex(i);
@@ -319,7 +322,26 @@ void MainWindow::closeEvent(QCloseEvent *event) {
     }
     event->accept();
 }
-void MainWindow::refreshModels(){const QString provider=m_provider?m_provider->currentText():QSettings().value("provider","Ollama (local)").toString();m_status->setText(QString("●  Connecting to %1…").arg(provider));m_providerClient.configure(provider,providerEndpoint(provider),storedApiKey(provider));m_providerClient.refreshModels();}
+void MainWindow::refreshModels(){
+    const QString provider=m_provider?m_provider->currentText():QSettings().value("provider","Ollama (local)").toString();
+    m_status->setText(QString("●  Connecting to %1…").arg(provider));
+    // Show the last known model list immediately, then refresh it in the background.
+    const QStringList cached=QSettings().value(QString("providers/%1/cachedModels").arg(provider)).toStringList();
+    if(m_models){
+        const QSignalBlocker blocker(m_models);
+        m_models->clear();
+        if(cached.isEmpty()) m_models->addItem("Loading models…");
+        else {
+            m_models->addItems(cached);
+            const QString preferred=QSettings().value(QString("defaultModel/%1").arg(provider)).toString();
+            const int index=m_models->findText(preferred);
+            if(index>=0)m_models->setCurrentIndex(index);
+        }
+        m_models->setEnabled(!cached.isEmpty());
+    }
+    m_providerClient.configure(provider,providerEndpoint(provider),storedApiKey(provider));
+    m_providerClient.refreshModels();
+}
 void MainWindow::showModelManager(){ ModelManagerDialog dialog(this); dialog.exec(); refreshModels(); }
 void MainWindow::addMessageCard(const QString &role,const QString &content,bool streaming,const QString &thinking) {
     auto *card=new QFrame(m_messageHost);card->setObjectName(role=="user"?"UserMessage":"AssistantMessage");

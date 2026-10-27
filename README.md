@@ -11,18 +11,18 @@ A C++20 / Qt 6 desktop AI client for local models and hosted model APIs.
 - Local Ollama model discovery and chat
 - OpenAI-compatible API support for OpenAI, OpenRouter, Groq, Together AI, DeepSeek, Mistral, LM Studio, llama.cpp server, vLLM, LocalAI, and compatible custom endpoints
 - Native streaming adapters for Anthropic Messages and Google Gemini generate-content APIs
-- Model discovery for supported provider APIs
+- Searchable model picker with per-provider remembered selections\n- Dedicated Ollama Model Manager: browse installed models, download from the Ollama library with progress, rename (copy then remove), and delete with confirmation\n- Model discovery for supported provider APIs
 - API keys masked in the settings UI; on Windows, keys are stored using Windows Credential Manager
 - Endpoint and provider preferences stored locally
 - Conversation history stored in the app's local settings
 
-Provider APIs differ in their supported parameters and model capabilities. Some providers or models may not support reasoning controls, and custom servers may implement only part of the OpenAI-compatible API. Vision, tools, audio, image/file uploads, model downloads, and provider-specific advanced features are not yet implemented.
+Provider APIs differ in their supported parameters and model capabilities. Some providers or models may not support reasoning controls, and custom servers may implement only part of the OpenAI-compatible API. Vision, tools, audio, image/file uploads, and provider-specific advanced features are not yet implemented. Model downloads, rename, and deletion are supported for Ollama only; hosted provider models are managed by their respective services.
 
 ## Provider setup
 
 1. Open **Settings**.
 2. Select the provider.
-3. Confirm or edit its API endpoint.
+3. Confirm or edit its API endpoint.\n4. Use **Model Manager** in the sidebar to download, rename, or delete Ollama models. For hosted providers, use that provider’s website or account tools to manage access and billing.
 4. Enter an API key for hosted providers (local servers usually do not need one).
 5. Save, then use **Refresh** and select a model.
 
@@ -94,5 +94,5 @@ When using a cloud provider, prompts and conversation context are sent to that p
 - API usage/cost estimates and rate-limit handling
 - Secure native key storage on macOS/Linux
 - Per-provider capability metadata and request-parameter negotiation
-- Model download/management controls
+- Model download/management controls for non-Ollama local runtimes
 - Stop-generation polish, conversation search/rename, syntax highlighting, tests, CI, and installers

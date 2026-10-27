@@ -196,7 +196,7 @@ MainWindow::MainWindow(QWidget *parent):QMainWindow(parent) {
         m_status->setText(QString("●  %1").arg(msg)); m_status->setStyleSheet("color:#e58c80;font-size:11px;");
     });
     connect(&m_providerClient,&ProviderClient::chatFinished,this,[this](){
-        m_busy=false; m_send->setEnabled(true); m_send->setText("Send  ↗"); m_input->setEnabled(true);
+        m_busy=false; m_send->setEnabled(true); m_send->setText("Send  ↗"); m_input->setEnabled(true); if(m_stop){m_stop->setVisible(false);m_stop->setEnabled(true);m_stop->setText("Stop");}
         if(m_streamView && !m_messages.isEmpty() && m_messages.last().content.isEmpty())setMarkdownContent(m_streamView, "*No visible response returned.*");
         m_streamView=nullptr;m_streamThinkingView=nullptr;m_streamThinkingLabel=nullptr;
         saveCurrentConversation();
@@ -268,7 +268,8 @@ void MainWindow::buildUi() {
     auto *tempRow=new QHBoxLayout;tempRow->addWidget(new QLabel("Temperature",side));tempRow->addStretch();auto *tempVal=new QLabel("0.7",side);tempVal->setObjectName("Muted");tempRow->addWidget(tempVal);sl->addLayout(tempRow);
     m_temperature=new QSlider(Qt::Horizontal,side);m_temperature->setRange(0,20);m_temperature->setValue(7);sl->addWidget(m_temperature);
     connect(m_temperature,&QSlider::valueChanged,this,[tempVal](int v){tempVal->setText(QString::number(v/10.0,'f',1));});
-    m_thinking=new QCheckBox("Enable model thinking",side);m_thinking->setChecked(false);sl->addWidget(m_thinking);
+    m_thinking=new QCheckBox("Enable model thinking (if supported)",side);m_thinking->setChecked(false);m_thinking->setToolTip("This option is provider/model dependent. Unsupported providers may ignore it.");sl->addWidget(m_thinking);
+    auto *contextRow=new QHBoxLayout;contextRow->addWidget(new QLabel("Context window",side));contextRow->addStretch();m_contextLength=new QSpinBox(side);m_contextLength->setRange(2048,131072);m_contextLength->setSingleStep(2048);m_contextLength->setValue(m_contextLength ? m_contextLength->value() : QSettings().value("contextLength",8192).toInt());m_contextLength->setSuffix(" tokens");m_contextLength->setToolTip("Requested context length. Local runtimes may honor it; hosted providers may ignore it or use their own limits.");m_contextLength->setFixedWidth(125);contextRow->addWidget(m_contextLength);sl->addLayout(contextRow);connect(m_contextLength,qOverload<int>(&QSpinBox::valueChanged),this,[](int v){QSettings().setValue("contextLength",v);});
     auto *bottom=new QHBoxLayout;auto *refresh=button("↻  Refresh","Ghost",side);bottom->addWidget(refresh);sl->addLayout(bottom);
     auto *settingsButton=button("⚙  Settings","Ghost",side);sl->addWidget(settingsButton);
     connect(settingsButton,&QPushButton::clicked,this,&MainWindow::showSettings);
@@ -292,7 +293,8 @@ void MainWindow::buildUi() {
     m_codeModeButton->setToolTip("Focus the model on programming, debugging, code review, and runnable examples.");
     connect(m_codeModeButton,&QPushButton::toggled,this,[this](bool enabled){m_codeMode=enabled;QSettings().setValue("codeMode",enabled);m_input->setPlaceholderText(enabled?"Describe the code you want to build or debug…":"Message your local model…");});
     cb->addWidget(m_codeModeButton);cb->addStretch();
-    m_send=button("Send  ↗","Primary",composer);cb->addWidget(m_send);cl->addLayout(cb);ml->addWidget(composer);
+    m_stop=button("Stop","",composer);m_stop->setToolTip("Cancel the current generation");m_stop->setVisible(false);cb->addWidget(m_stop);m_send=button("Send  ↗","Primary",composer);cb->addWidget(m_send);cl->addLayout(cb);ml->addWidget(composer);
+    connect(m_stop,&QPushButton::clicked,this,[this](){if(m_busy){m_stop->setEnabled(false);m_stop->setText("Stopping…");m_providerClient.cancel();}});
     connect(m_send,&QPushButton::clicked,this,&MainWindow::sendMessage);connect(m_input,&QLineEdit::returnPressed,this,&MainWindow::sendMessage);
     outer->addWidget(main,1);setCentralWidget(root);
 }
@@ -356,13 +358,13 @@ void MainWindow::sendMessage() {
     if(m_conversationId.isEmpty())m_conversationId=QUuid::createUuid().toString(QUuid::WithoutBraces);
     m_messages.append(Message{"user", prompt, QString{}});addMessageCard("user",prompt);m_input->clear();
     saveCurrentConversation();
-    addMessageCard("assistant","*Generating…*",true);m_busy=true;m_send->setEnabled(false);m_send->setText("Generating…");m_input->setEnabled(false);
+    addMessageCard("assistant","*Generating…*",true);m_busy=true;m_send->setEnabled(false);m_send->setText("Generating…");m_input->setEnabled(false);if(m_stop){m_stop->setEnabled(true);m_stop->setText("Stop");m_stop->setVisible(true);}
     m_providerClient.chat(m_models->currentText(),apiMessages(),m_thinking->isChecked(),m_temperature->value()/10.0,QSettings().value("contextLength",8192).toInt());
 }
 void MainWindow::newChat() {
     if(m_busy)m_providerClient.cancel();
     saveCurrentConversation();
-    m_messages.clear();m_title.clear();m_conversationId.clear();m_streamView=nullptr;m_streamThinkingView=nullptr;m_streamThinkingLabel=nullptr;m_busy=false;m_send->setEnabled(true);m_send->setText("Send  ↗");m_input->setEnabled(true);m_chatTitle->setText("New conversation");
+    m_messages.clear();m_title.clear();m_conversationId.clear();if(m_stop){m_stop->setVisible(false);m_stop->setEnabled(true);m_stop->setText("Stop");}m_streamView=nullptr;m_streamThinkingView=nullptr;m_streamThinkingLabel=nullptr;m_busy=false;m_send->setEnabled(true);m_send->setText("Send  ↗");m_input->setEnabled(true);m_chatTitle->setText("New conversation");
     while(m_messageLayout->count()>1){auto *item=m_messageLayout->takeAt(0);if(item->widget())item->widget()->deleteLater();delete item;}showWelcome();rebuildHistory();
 }
 void MainWindow::showWelcome() {
@@ -370,8 +372,8 @@ void MainWindow::showWelcome() {
     auto *w=new QWidget(m_messageHost);auto *l=new QVBoxLayout(w);l->setContentsMargins(12,65,12,45);l->setSpacing(13);l->setAlignment(Qt::AlignHCenter|Qt::AlignVCenter);
     m_welcomeLogo=new QLabel(w);m_welcomeLogo->setAlignment(Qt::AlignCenter);m_welcomeLogo->setFixedSize(96,96);m_welcomeLogo->setScaledContents(true);m_welcomeLogo->setPixmap(eclipseLogoPixmap(96,QColor(paletteFor(QSettings().value("theme","Eclipse Dark").toString()=="System"?(QGuiApplication::styleHints()->colorScheme()==Qt::ColorScheme::Light?"Light":"Eclipse Dark"):QSettings().value("theme","Eclipse Dark").toString()).accent)));l->addWidget(m_welcomeLogo,0,Qt::AlignHCenter);
     auto *title=new QLabel("Your AI. Your machine.",w);title->setAlignment(Qt::AlignCenter);title->setStyleSheet("font-size:30px;font-weight:650;");l->addWidget(title);
-    auto *sub=new QLabel("One workspace for local and cloud AI models.",w);sub->setAlignment(Qt::AlignCenter);sub->setStyleSheet("color:#8d9bb0;font-size:14px;");l->addWidget(sub);
-    auto *hint=new QLabel("Choose a provider and model above, then ask anything.",w);hint->setAlignment(Qt::AlignCenter);hint->setStyleSheet("color:#8d9bb0;font-size:11px;");l->addWidget(hint);m_messageLayout->insertWidget(0,w);
+    auto *sub=new QLabel("Streaming text chat for local and hosted models.",w);sub->setAlignment(Qt::AlignCenter);sub->setStyleSheet("color:#8d9bb0;font-size:14px;");l->addWidget(sub);
+    auto *hint=new QLabel("Includes Code Mode, adjustable temperature and context, model-thinking display when supported, saved chats, and Ollama model management. Image input, audio, and tool calling are not implemented yet.",w);hint->setAlignment(Qt::AlignCenter);hint->setStyleSheet("color:#8d9bb0;font-size:11px;");l->addWidget(hint);m_messageLayout->insertWidget(0,w);
 }
 QJsonArray MainWindow::apiMessages() const {
     QJsonArray a;

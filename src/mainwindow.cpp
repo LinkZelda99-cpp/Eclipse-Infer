@@ -287,6 +287,7 @@ MainWindow::MainWindow(QWidget *parent):QMainWindow(parent) {
     });
     connect(m_updateManager, &UpdateManager::updateAvailable, this,
             [this](const QString &version, const QString &notes, const QUrl &assetUrl, const QUrl &releaseUrl) {
+        QSettings().setValue("updates/lastCheckUtc", QDateTime::currentDateTimeUtc().toString(Qt::ISODate));
         const bool canInstall = !assetUrl.isEmpty();
         QMessageBox dialog(this);
         dialog.setWindowTitle("Eclipse Infer update available");

@@ -94,6 +94,8 @@ MainWindow::MainWindow(QWidget *parent):QMainWindow(parent) {
     connect(&m_ollama,&OllamaClient::thinkingReceived,this,[this](const QString &part){
         if(m_messages.isEmpty()||m_messages.last().role!="assistant")m_messages.append(Message{"assistant", QString{}, QString{}});
         m_messages.last().thinking+=part;
+        // Persist thinking as it streams so saved chats retain it if generation is interrupted.
+        saveCurrentConversation();
         if(m_streamThinkingLabel)m_streamThinkingLabel->setVisible(true);
         if(m_streamThinkingView)m_streamThinkingView->setMarkdown(m_messages.last().thinking);
         if(m_streamView && m_messages.last().content.isEmpty())m_streamView->setMarkdown("*Thinking…*");
@@ -117,10 +119,8 @@ MainWindow::MainWindow(QWidget *parent):QMainWindow(parent) {
         if(s.value("theme","Eclipse Dark").toString()=="System")applyTheme("System");
     });
     m_temperature->setValue(qRound(settings.value("temperature",0.7).toDouble()*10.0));
-    m_context->setValue(settings.value("contextLength",8192).toInt());
     m_thinking->setChecked(settings.value("thinking",false).toBool());
     connect(m_temperature,&QSlider::valueChanged,this,[](int v){QSettings().setValue("temperature",v/10.0);});
-    connect(m_context,qOverload<int>(&QSpinBox::valueChanged),this,[](int v){QSettings().setValue("contextLength",v);});
     connect(m_thinking,&QCheckBox::toggled,this,[](bool v){QSettings().setValue("thinking",v);});
     rebuildHistory(); refreshModels(); showWelcome();
 }
@@ -139,7 +139,6 @@ void MainWindow::buildUi() {
     auto *tempRow=new QHBoxLayout;tempRow->addWidget(new QLabel("Temperature",side));tempRow->addStretch();auto *tempVal=new QLabel("0.7",side);tempVal->setObjectName("Muted");tempRow->addWidget(tempVal);sl->addLayout(tempRow);
     m_temperature=new QSlider(Qt::Horizontal,side);m_temperature->setRange(0,20);m_temperature->setValue(7);sl->addWidget(m_temperature);
     connect(m_temperature,&QSlider::valueChanged,this,[tempVal](int v){tempVal->setText(QString::number(v/10.0,'f',1));});
-    auto *ctxRow=new QHBoxLayout;ctxRow->addWidget(new QLabel("Context length",side));ctxRow->addStretch();m_context=new QSpinBox(side);m_context->setRange(2048,131072);m_context->setSingleStep(2048);m_context->setValue(8192);m_context->setMaximumWidth(105);ctxRow->addWidget(m_context);sl->addLayout(ctxRow);
     m_thinking=new QCheckBox("Enable model thinking",side);m_thinking->setChecked(false);sl->addWidget(m_thinking);
     auto *bottom=new QHBoxLayout;auto *refresh=button("↻  Refresh","Ghost",side);bottom->addWidget(refresh);sl->addLayout(bottom);
     auto *settingsButton=button("⚙  Settings","Ghost",side);sl->addWidget(settingsButton);
@@ -154,7 +153,7 @@ void MainWindow::buildUi() {
     m_messageHost=new QWidget(m_scroll);m_messageLayout=new QVBoxLayout(m_messageHost);m_messageLayout->setContentsMargins(0,8,0,8);m_messageLayout->setSpacing(14);m_messageLayout->addStretch();m_scroll->setWidget(m_messageHost);ml->addWidget(m_scroll,1);
     auto *composer=new QFrame(main);composer->setObjectName("Composer");auto *cl=new QVBoxLayout(composer);cl->setContentsMargins(12,10,12,10);
     m_input=new QLineEdit(composer);m_input->setPlaceholderText("Message your local model…");m_input->setMinimumHeight(42);cl->addWidget(m_input);
-    auto *cb=new QHBoxLayout;auto *hint=new QLabel("Local inference · No cloud API key required",composer);hint->setObjectName("Muted");cb->addWidget(hint,1);
+    auto *cb=new QHBoxLayout;cb->addStretch();
     m_send=button("Send  ↗","Primary",composer);cb->addWidget(m_send);cl->addLayout(cb);ml->addWidget(composer);
     connect(m_send,&QPushButton::clicked,this,&MainWindow::sendMessage);connect(m_input,&QLineEdit::returnPressed,this,&MainWindow::sendMessage);
     outer->addWidget(main,1);setCentralWidget(root);
@@ -205,7 +204,7 @@ void MainWindow::sendMessage() {
     m_messages.append(Message{"user", prompt, QString{}});addMessageCard("user",prompt);m_input->clear();
     saveCurrentConversation();
     addMessageCard("assistant","*Generating…*",true);m_busy=true;m_send->setEnabled(false);m_send->setText("Generating…");m_input->setEnabled(false);
-    m_ollama.chat(m_models->currentText(),apiMessages(),m_thinking->isChecked(),m_temperature->value()/10.0,m_context->value());
+    m_ollama.chat(m_models->currentText(),apiMessages(),m_thinking->isChecked(),m_temperature->value()/10.0,QSettings().value("contextLength",8192).toInt());
 }
 void MainWindow::newChat() {
     if(m_busy)m_ollama.cancel();
@@ -272,16 +271,17 @@ void MainWindow::showSettings() {
     connect(theme,&QComboBox::currentTextChanged,this,[this](const QString &name){applyTheme(name);});
     auto *defaultModel=new QComboBox(&dialog);for(int i=0;i<m_models->count();++i)if(m_models->itemText(i)!="No models installed")defaultModel->addItem(m_models->itemText(i));
     const QString preferred=settings.value("defaultModel",m_models->currentText()).toString();int modelIndex=defaultModel->findText(preferred);if(modelIndex>=0)defaultModel->setCurrentIndex(modelIndex);
+    auto *contextLength=new QSpinBox(&dialog);contextLength->setRange(2048,131072);contextLength->setSingleStep(2048);contextLength->setValue(settings.value("contextLength",8192).toInt());
     auto *historyLimit=new QComboBox(&dialog);historyLimit->addItem("10 conversations",10);historyLimit->addItem("20 conversations",20);historyLimit->addItem("30 conversations",30);
     int limitIndex=historyLimit->findData(settings.value("historyLimit",30));if(limitIndex>=0)historyLimit->setCurrentIndex(limitIndex);
     auto *clearHistory=button("Delete all saved conversations","", &dialog);
-    form->addRow("Appearance",theme);form->addRow("Default model",defaultModel);form->addRow("Keep recent chats",historyLimit);layout->addLayout(form);
+    form->addRow("Appearance",theme);form->addRow("Default model",defaultModel);form->addRow("Context window (tokens)",contextLength);form->addRow("Keep recent chats",historyLimit);layout->addLayout(form);
     auto *privacy=new QLabel("Chats and preferences are stored locally in this app's settings. Prompts are sent to your local Ollama server.",&dialog);privacy->setWordWrap(true);privacy->setObjectName("Muted");layout->addWidget(privacy);layout->addWidget(clearHistory);
     auto *buttons=new QDialogButtonBox(QDialogButtonBox::Save|QDialogButtonBox::Cancel,&dialog);layout->addWidget(buttons);
     connect(clearHistory,&QPushButton::clicked,&dialog,[this,&dialog](){if(QMessageBox::question(&dialog,"Delete saved chats","Permanently delete all saved conversation history?")==QMessageBox::Yes){QSettings s;const auto ids=s.value("conversationIds").toStringList();for(const auto &id:ids)s.remove("conversations/"+id);s.remove("conversationIds");m_historyIds.clear();rebuildHistory();}});
     connect(buttons,&QDialogButtonBox::rejected,&dialog,[this,&dialog,&settings](){applyTheme(settings.value("theme","Eclipse Dark").toString());dialog.reject();});
-    connect(buttons,&QDialogButtonBox::accepted,&dialog,[this,&dialog,theme,defaultModel,historyLimit](){
-        QSettings s;s.setValue("theme",theme->currentText());s.setValue("defaultModel",defaultModel->currentText());s.setValue("historyLimit",historyLimit->currentData().toInt());
+    connect(buttons,&QDialogButtonBox::accepted,&dialog,[this,&dialog,theme,defaultModel,contextLength,historyLimit](){
+        QSettings s;s.setValue("theme",theme->currentText());s.setValue("defaultModel",defaultModel->currentText());s.setValue("contextLength",contextLength->value());s.setValue("historyLimit",historyLimit->currentData().toInt());
         applyTheme(theme->currentText());
         dialog.accept();
     });

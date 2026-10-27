@@ -27,6 +27,7 @@
 namespace {
 struct Palette { QString bg, panel, raised, fg, muted, border, accent, accentText; };
 Palette paletteFor(const QString &name) {
+    if(name=="ChatGPT Dark") return {"#212121","#171717","#303030","#ececec","#a1a1aa","#414141","#8ab4f8","#171717"};
     if(name=="Light") return {"#f4f6fa","#ffffff","#e9edf5","#182235","#667085","#d7deea","#2563eb","#ffffff"};
     if(name=="Midnight Blue") return {"#080f1f","#0d1930","#142440","#e5efff","#8fa9d0","#263b5e","#60a5fa","#07111f"};
     if(name=="AMOLED Black") return {"#000000","#080808","#171717","#f5f5f5","#a3a3a3","#303030","#38bdf8","#031018"};
@@ -54,7 +55,7 @@ QString appStyleSheet(const QString &theme) {
       "QLineEdit:focus,QComboBox:focus{border-color:%7;} QSlider::groove:horizontal{height:4px;background:%6;}"
       "QSlider::handle:horizontal{background:%7;width:14px;margin:-5px 0;border-radius:7px;}"
       "QScrollArea{border:0;background:transparent;} QScrollBar:vertical{background:transparent;width:8px;}"
-      "QScrollBar::handle:vertical{background:%6;min-height:24px;border-radius:4px;} QFrame#Composer{background:%3;border:1px solid %6;border-radius:14px;}"
+      "QScrollBar::handle:vertical{background:%6;min-height:24px;border-radius:4px;} QFrame#Composer{background:%5;border:1px solid %6;border-radius:18px;}"
       "QFrame#MessageCard,QFrame#UserMessage,QFrame#AssistantMessage{background:%3;border:1px solid %6;border-radius:13px;} "
       "QFrame#UserMessage{background:%5;border-color:%6;} QFrame#AssistantMessage{background:%3;} "
       "QTextBrowser{background:transparent;border:0;color:%2;selection-background-color:#244b78;} QTextBrowser a{color:#58a6ff;} QTextBrowser pre{background:%1;border:1px solid %6;border-radius:7px;padding:9px;} QTextBrowser code{font-family:Consolas,monospace;} "
@@ -303,7 +304,7 @@ void MainWindow::showSettings() {
     QDialog dialog(this);dialog.setWindowTitle("Eclipse Infer Settings");dialog.setMinimumWidth(420);
     auto *layout=new QVBoxLayout(&dialog);auto *form=new QFormLayout;
     auto *theme=new QComboBox(&dialog);
-    const QStringList themes={"System","Eclipse Dark","Light","Midnight Blue","AMOLED Black","Dracula","Nord","Solarized Dark","Solarized Light","Forest","Sunset","Rose Pine","Monokai","Cyberpunk"};
+    const QStringList themes={"System","ChatGPT Dark","Eclipse Dark","Light","Midnight Blue","AMOLED Black","Dracula","Nord","Solarized Dark","Solarized Light","Forest","Sunset","Rose Pine","Monokai","Cyberpunk"};
     theme->addItems(themes);
     QSettings settings;int themeIndex=theme->findText(settings.value("theme","Eclipse Dark").toString());if(themeIndex>=0)theme->setCurrentIndex(themeIndex);
     connect(theme,&QComboBox::currentTextChanged,this,[this](const QString &name){applyTheme(name);});

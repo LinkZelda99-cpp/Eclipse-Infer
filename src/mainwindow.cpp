@@ -138,6 +138,14 @@ void MainWindow::addMessageCard(const QString &role,const QString &content,bool 
 void MainWindow::sendMessage() {
     if(m_busy)return;const QString prompt=m_input->text().trimmed();if(prompt.isEmpty())return;
     if(m_models->currentText().isEmpty()||m_models->currentText()=="No models installed"){QMessageBox::information(this,"No model selected","Install a model in Ollama, then press Refresh.");return;}
+    if(m_messages.isEmpty()) {
+        // Remove the welcome panel as soon as the first message is sent.
+        if (m_messageLayout->count() > 1) {
+            auto *welcomeItem = m_messageLayout->takeAt(0);
+            if (welcomeItem->widget()) welcomeItem->widget()->deleteLater();
+            delete welcomeItem;
+        }
+    }
     if(m_title.isEmpty()){m_title=prompt.simplified();if(m_title.size()>34)m_title=m_title.left(31)+"…";m_chatTitle->setText(m_title);}
     m_messages.append(Message{"user", prompt});addMessageCard("user",prompt);m_input->clear();
     addMessageCard("assistant","*Generating…*",true);m_busy=true;m_send->setEnabled(false);m_send->setText("Generating…");m_input->setEnabled(false);

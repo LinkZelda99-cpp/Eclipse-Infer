@@ -79,6 +79,7 @@ MainWindow::MainWindow(QWidget *parent):QMainWindow(parent) {
     connect(&m_ollama,&OllamaClient::thinkingReceived,this,[this](const QString &part){
         if(m_messages.isEmpty()||m_messages.last().role!="assistant")m_messages.append(Message{"assistant", QString{}, QString{}});
         m_messages.last().thinking+=part;
+        if(m_streamThinkingLabel)m_streamThinkingLabel->setVisible(true);
         if(m_streamThinkingView){m_streamThinkingView->setVisible(true);m_streamThinkingView->setMarkdown(m_messages.last().thinking);}
         if(m_streamView && m_messages.last().content.isEmpty())m_streamView->setMarkdown("*Thinking…*");
         m_scroll->verticalScrollBar()->setValue(m_scroll->verticalScrollBar()->maximum());
@@ -89,7 +90,7 @@ MainWindow::MainWindow(QWidget *parent):QMainWindow(parent) {
     connect(&m_ollama,&OllamaClient::chatFinished,this,[this](){
         m_busy=false; m_send->setEnabled(true); m_send->setText("Send  ↗"); m_input->setEnabled(true);
         if(m_streamView && !m_messages.isEmpty() && m_messages.last().content.isEmpty())m_streamView->setMarkdown("*No visible response returned.*");
-        m_streamView=nullptr;
+        m_streamView=nullptr;m_streamThinkingView=nullptr;m_streamThinkingLabel=nullptr;
         saveCurrentConversation();
         rebuildHistory();
     });
@@ -157,7 +158,7 @@ void MainWindow::addMessageCard(const QString &role,const QString &content,bool 
     QPointer<QTextBrowser> thinkingView;
     if(role=="assistant"){
         auto *thinkingLabel=new QLabel("MODEL THINKING",card);thinkingLabel->setStyleSheet("font-size:10px;font-weight:800;letter-spacing:1px;color:#58a6ff;");
-        thinkingLabel->setVisible(!thinking.isEmpty());layout->addWidget(thinkingLabel);
+        thinkingLabel->setVisible(!thinking.isEmpty());layout->addWidget(thinkingLabel);if(streaming)m_streamThinkingLabel=thinkingLabel;
         auto *tv=new QTextBrowser(card);tv->setReadOnly(true);tv->setOpenExternalLinks(true);tv->setMarkdown(thinking);tv->setMinimumHeight(24);tv->setMaximumHeight(180);tv->setVisible(!thinking.isEmpty());tv->setFrameShape(QFrame::NoFrame);
         tv->setStyleSheet("QTextBrowser{background:transparent;border:0;padding:0;color:#8d9bb0;}");layout->addWidget(tv);thinkingView=tv;
     }
@@ -179,14 +180,15 @@ void MainWindow::sendMessage() {
     }
     if(m_title.isEmpty()){m_title=prompt.simplified();if(m_title.size()>34)m_title=m_title.left(31)+"…";m_chatTitle->setText(m_title);}
     if(m_conversationId.isEmpty())m_conversationId=QUuid::createUuid().toString(QUuid::WithoutBraces);
-    m_messages.append(Message{"user", prompt});addMessageCard("user",prompt);m_input->clear();
+    m_messages.append(Message{"user", prompt, QString{}});addMessageCard("user",prompt);m_input->clear();
+    saveCurrentConversation();
     addMessageCard("assistant","*Generating…*",true);m_busy=true;m_send->setEnabled(false);m_send->setText("Generating…");m_input->setEnabled(false);
     m_ollama.chat(m_models->currentText(),apiMessages(),m_thinking->isChecked(),m_temperature->value()/10.0,m_context->value());
 }
 void MainWindow::newChat() {
     if(m_busy)m_ollama.cancel();
     saveCurrentConversation();
-    m_messages.clear();m_title.clear();m_conversationId.clear();m_streamView=nullptr;m_busy=false;m_send->setEnabled(true);m_send->setText("Send  ↗");m_input->setEnabled(true);m_chatTitle->setText("New conversation");
+    m_messages.clear();m_title.clear();m_conversationId.clear();m_streamView=nullptr;m_streamThinkingView=nullptr;m_streamThinkingLabel=nullptr;m_busy=false;m_send->setEnabled(true);m_send->setText("Send  ↗");m_input->setEnabled(true);m_chatTitle->setText("New conversation");
     while(m_messageLayout->count()>1){auto *item=m_messageLayout->takeAt(0);if(item->widget())item->widget()->deleteLater();delete item;}showWelcome();rebuildHistory();
 }
 void MainWindow::showWelcome() {
@@ -235,6 +237,7 @@ void MainWindow::openConversation(const QString &id) {
         if(role!="user"&&role!="assistant")continue;
         m_messages.append(Message{role,content,thinking});addMessageCard(role,content,false,thinking);
     }
+    m_streamView=nullptr;m_streamThinkingView=nullptr;m_streamThinkingLabel=nullptr;
     m_chatTitle->setText(m_title);m_scroll->verticalScrollBar()->setValue(m_scroll->verticalScrollBar()->maximum());
 }
 void MainWindow::showSettings() {

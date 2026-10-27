@@ -18,6 +18,9 @@
 #include <QImage>
 #include <QPixmap>
 #include <QIcon>
+#include <QMenu>
+#include <QSystemTrayIcon>
+#include <QCloseEvent>
 #include <QScrollArea>
 #include <QScrollBar>
 #include <QSettings>
@@ -159,6 +162,34 @@ MainWindow::MainWindow(QWidget *parent):QMainWindow(parent) {
     QSettings settings;
     const QString theme=settings.value("theme","Eclipse Dark").toString();
     applyTheme(theme);
+    // Keep the app alive in the Windows notification area when its window closes.
+    QApplication::setQuitOnLastWindowClosed(false);
+    if (QSystemTrayIcon::isSystemTrayAvailable()) {
+        m_trayIcon = new QSystemTrayIcon(windowIcon(), this);
+        m_trayIcon->setToolTip(QStringLiteral("Eclipse Infer"));
+        auto *trayMenu = new QMenu(this);
+        QAction *openAction = trayMenu->addAction(QStringLiteral("Open Eclipse Infer"));
+        connect(openAction, &QAction::triggered, this, [this]() {
+            showNormal();
+            raise();
+            activateWindow();
+        });
+        trayMenu->addSeparator();
+        QAction *quitAction = trayMenu->addAction(QStringLiteral("Exit"));
+        connect(quitAction, &QAction::triggered, qApp, &QApplication::quit);
+        m_trayIcon->setContextMenu(trayMenu);
+        connect(m_trayIcon, &QSystemTrayIcon::activated, this,
+                [this](QSystemTrayIcon::ActivationReason reason) {
+            if (reason == QSystemTrayIcon::Trigger || reason == QSystemTrayIcon::DoubleClick) {
+                showNormal();
+                raise();
+                activateWindow();
+            }
+        });
+        m_trayIcon->show();
+    } else {
+        qWarning("Eclipse Infer: Windows system tray is not available.");
+    }
     connect(QGuiApplication::styleHints(),&QStyleHints::colorSchemeChanged,this,[this](Qt::ColorScheme){
         QSettings s;
         if(s.value("theme","Eclipse Dark").toString()=="System")applyTheme("System");
@@ -219,6 +250,14 @@ void MainWindow::applyTheme(const QString &theme){
     setWindowIcon(logoIcon);
     qApp->setWindowIcon(logoIcon);
     qApp->setStyleSheet(appStyleSheet(resolved));
+}
+void MainWindow::closeEvent(QCloseEvent *event) {
+    if (m_trayIcon && m_trayIcon->isVisible()) {
+        hide();
+        event->ignore();
+        return;
+    }
+    event->accept();
 }
 void MainWindow::refreshModels(){m_status->setText("●  Checking Ollama…");m_ollama.refreshModels();}
 void MainWindow::addMessageCard(const QString &role,const QString &content,bool streaming,const QString &thinking) {

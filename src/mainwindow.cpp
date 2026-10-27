@@ -442,25 +442,23 @@ void MainWindow::showSettings() {
     auto *endpoint = new QLineEdit(providerEndpoint(provider->currentText()), &dialog);
     auto *apiKey = new QLineEdit(storedApiKey(provider->currentText()), &dialog); apiKey->setEchoMode(QLineEdit::Password); apiKey->setPlaceholderText("Required for most hosted providers");
     connect(provider, &QComboBox::currentTextChanged, &dialog, [endpoint, apiKey](const QString &name) { endpoint->setText(providerEndpoint(name)); apiKey->setText(storedApiKey(name)); });
-    auto *defaultModel=new QComboBox(&dialog);for(int i=0;i<m_models->count();++i)if(m_models->itemText(i)!="No models installed")defaultModel->addItem(m_models->itemText(i));
-    const QString preferred=settings.value("defaultModel",m_models->currentText()).toString();int modelIndex=defaultModel->findText(preferred);if(modelIndex>=0)defaultModel->setCurrentIndex(modelIndex);
     auto *contextLength=new QSpinBox(&dialog);contextLength->setRange(2048,131072);contextLength->setSingleStep(2048);contextLength->setValue(settings.value("contextLength",8192).toInt());
     auto *historyLimit=new QComboBox(&dialog);historyLimit->addItem("10 conversations",10);historyLimit->addItem("20 conversations",20);historyLimit->addItem("30 conversations",30);
     int limitIndex=historyLimit->findData(settings.value("historyLimit",30));if(limitIndex>=0)historyLimit->setCurrentIndex(limitIndex);
     auto *clearHistory=button("Delete all saved conversations","", &dialog);
-    form->addRow("Appearance",theme);form->addRow("Provider",provider);form->addRow("API endpoint",endpoint);form->addRow("API key",apiKey);form->addRow("Default model",defaultModel);form->addRow("Context window (tokens)",contextLength);form->addRow("Keep recent chats",historyLimit);layout->addLayout(form);
+    form->addRow("Appearance",theme);form->addRow("Provider",provider);form->addRow("API endpoint",endpoint);form->addRow("API key",apiKey);form->addRow("Context window (tokens)",contextLength);form->addRow("Keep recent chats",historyLimit);layout->addLayout(form);
     auto *privacy=new QLabel("Chats and preferences are stored locally. Prompts are sent to the selected provider; cloud providers receive prompts over the internet.",&dialog);privacy->setWordWrap(true);privacy->setObjectName("Muted");layout->addWidget(privacy);layout->addWidget(clearHistory);
     auto *buttons=new QDialogButtonBox(QDialogButtonBox::Save|QDialogButtonBox::Cancel,&dialog);layout->addWidget(buttons);
     connect(clearHistory,&QPushButton::clicked,&dialog,[this,&dialog](){if(QMessageBox::question(&dialog,"Delete saved chats","Permanently delete all saved conversation history?")==QMessageBox::Yes){QSettings s;const auto ids=s.value("conversationIds").toStringList();for(const auto &id:ids)s.remove("conversations/"+id);s.remove("conversationIds");m_historyIds.clear();rebuildHistory();}});
     connect(buttons,&QDialogButtonBox::rejected,&dialog,[this,&dialog,&settings](){applyTheme(settings.value("theme","Eclipse Dark").toString());dialog.reject();});
-    connect(buttons,&QDialogButtonBox::accepted,&dialog,[this,&dialog,theme,provider,endpoint,apiKey,defaultModel,contextLength,historyLimit](){
+    connect(buttons,&QDialogButtonBox::accepted,&dialog,[this,&dialog,theme,provider,endpoint,apiKey,contextLength,historyLimit](){
         QSettings s;
         s.setValue("provider",provider->currentText());
         s.setValue(QStringLiteral("providers/%1/endpoint").arg(provider->currentText()),endpoint->text().trimmed());
         storeApiKey(provider->currentText(),apiKey->text().trimmed());
         { const QSignalBlocker blocker(m_provider); m_provider->setCurrentText(provider->currentText()); }
         m_providerClient.configure(provider->currentText(),endpoint->text().trimmed(),apiKey->text().trimmed());
-        s.setValue("theme",theme->currentText());s.setValue(QString("defaultModel/%1").arg(provider->currentText()),defaultModel->currentText());s.setValue("contextLength",contextLength->value());if(m_contextLength)m_contextLength->setValue(contextLength->value());s.setValue("historyLimit",historyLimit->currentData().toInt());
+        s.setValue("theme",theme->currentText());s.setValue("contextLength",contextLength->value());if(m_contextLength)m_contextLength->setValue(contextLength->value());s.setValue("historyLimit",historyLimit->currentData().toInt());
         applyTheme(theme->currentText());
         dialog.accept();
         refreshModels();

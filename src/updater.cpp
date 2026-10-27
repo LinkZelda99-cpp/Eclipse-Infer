@@ -38,34 +38,34 @@ void UpdateManager::checkForUpdates(bool userInitiated) {
         const QString errorText = reply->errorString();
         reply->deleteLater();
         if (error != QNetworkReply::NoError) {
-            emit checkFailed(QStringLiteral("Couldn't check GitHub Releases: %1").arg(errorText));
+            emit checkFailed(QStringLiteral("Couldn't check GitHub Releases: %1").arg(errorText), m_userInitiated);
             return;
         }
         QJsonParseError parseError{};
         const QJsonDocument document = QJsonDocument::fromJson(body, &parseError);
         if (parseError.error != QJsonParseError::NoError || !document.isObject()) {
-            emit checkFailed(QStringLiteral("GitHub returned an invalid release response."));
+            emit checkFailed(QStringLiteral("GitHub returned an invalid release response."), m_userInitiated);
             return;
         }
         const QJsonObject release = document.object();
         if (release.value(QStringLiteral("draft")).toBool() || release.value(QStringLiteral("prerelease")).toBool()) {
-            emit checkFailed(QStringLiteral("The latest GitHub release isn't a stable public release."));
+            emit checkFailed(QStringLiteral("The latest GitHub release isn't a stable public release."), m_userInitiated);
             return;
         }
         const QString latest = normalizedVersion(release.value(QStringLiteral("tag_name")).toString());
         const QString current = normalizedVersion(QCoreApplication::applicationVersion());
         if (latest.isEmpty()) {
-            emit checkFailed(QStringLiteral("The GitHub release has no version tag."));
+            emit checkFailed(QStringLiteral("The GitHub release has no version tag."), m_userInitiated);
             return;
         }
         const QVersionNumber latestVersion = QVersionNumber::fromString(latest);
         const QVersionNumber currentVersion = QVersionNumber::fromString(current);
         if (latestVersion.isNull() || currentVersion.isNull()) {
-            emit checkFailed(QStringLiteral("Couldn't compare app version '%1' with release '%2'.").arg(current, latest));
+            emit checkFailed(QStringLiteral("Couldn't compare app version '%1' with release '%2'.").arg(current, latest), m_userInitiated);
             return;
         }
         if (QVersionNumber::compare(latestVersion, currentVersion) <= 0) {
-            emit upToDate();
+            emit upToDate(m_userInitiated);
             return;
         }
         QUrl assetUrl;

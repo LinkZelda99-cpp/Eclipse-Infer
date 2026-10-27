@@ -556,11 +556,24 @@ void MainWindow::newChat() {
 }
 void MainWindow::showWelcome() {
     if(!m_messages.isEmpty()||m_messageLayout->count()>1)return;
-    auto *w=new QWidget(m_messageHost);auto *l=new QVBoxLayout(w);l->setContentsMargins(12,65,12,45);l->setSpacing(13);l->setAlignment(Qt::AlignHCenter|Qt::AlignVCenter);
-    m_welcomeLogo=new QLabel(w);m_welcomeLogo->setAlignment(Qt::AlignCenter);m_welcomeLogo->setFixedSize(96,96);m_welcomeLogo->setScaledContents(true);m_welcomeLogo->setPixmap(eclipseLogoPixmap(96,QColor(paletteFor(QSettings().value("theme","Eclipse Dark").toString()=="System"?(QGuiApplication::styleHints()->colorScheme()==Qt::ColorScheme::Light?"Light":"Eclipse Dark"):QSettings().value("theme","Eclipse Dark").toString()).accent)));l->addWidget(m_welcomeLogo,0,Qt::AlignHCenter);
-    auto *title=new QLabel("Your AI. Your machine.",w);title->setAlignment(Qt::AlignCenter);title->setStyleSheet("font-size:30px;font-weight:650;");l->addWidget(title);
-    auto *sub=new QLabel("Streaming text chat for local and hosted models.",w);sub->setAlignment(Qt::AlignCenter);sub->setStyleSheet("color:#8d9bb0;font-size:14px;");l->addWidget(sub);
-    auto *hint=new QLabel("Includes Code Mode, adjustable temperature and context, model-thinking display when supported, saved chats, and Ollama model management. Image input, audio, and tool calling are not implemented yet.",w);hint->setAlignment(Qt::AlignCenter);hint->setWordWrap(true);hint->setMaximumWidth(760);hint->setStyleSheet("color:#8d9bb0;font-size:13px;");l->addWidget(hint,0,Qt::AlignHCenter);m_messageLayout->insertWidget(0,w);
+    auto *w=new QWidget(m_messageHost);
+    auto *l=new QVBoxLayout(w);
+    l->setContentsMargins(20,48,20,48);
+    l->setSpacing(18);
+    l->setAlignment(Qt::AlignHCenter|Qt::AlignVCenter);
+
+    m_welcomeLogo=new QLabel(w);
+    m_welcomeLogo->setAlignment(Qt::AlignCenter);
+    m_welcomeLogo->setFixedSize(112,112);
+    m_welcomeLogo->setScaledContents(true);
+    m_welcomeLogo->setPixmap(eclipseLogoPixmap(112,QColor(paletteFor(QSettings().value("theme","Eclipse Dark").toString()=="System"?(QGuiApplication::styleHints()->colorScheme()==Qt::ColorScheme::Light?"Light":"Eclipse Dark"):QSettings().value("theme","Eclipse Dark").toString()).accent)));
+    l->addWidget(m_welcomeLogo,0,Qt::AlignHCenter);
+
+    auto *title=new QLabel("Your AI. Your machine.",w);
+    title->setAlignment(Qt::AlignCenter);
+    title->setStyleSheet("font-size:34px;font-weight:700;letter-spacing:-0.5px;");
+    l->addWidget(title);
+    m_messageLayout->insertWidget(0,w);
 }
 QJsonArray MainWindow::apiMessages() const {
     QJsonArray a;

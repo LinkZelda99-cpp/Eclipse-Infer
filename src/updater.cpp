@@ -30,7 +30,6 @@ void UpdateManager::checkForUpdates(bool userInitiated) {
     QNetworkRequest request(latestReleaseApi);
     request.setHeader(QNetworkRequest::UserAgentHeader, QStringLiteral("Eclipse-Infer-Updater"));
     request.setRawHeader("Accept", "application/vnd.github+json");
-    request.setTransferTimeout(15000);
     QNetworkReply *reply = m_network->get(request);
     connect(reply, &QNetworkReply::finished, this, [this, reply]() {
         const QByteArray body = reply->readAll();
@@ -89,7 +88,7 @@ void UpdateManager::checkForUpdates(bool userInitiated) {
 
 void UpdateManager::downloadUpdate(const QUrl &url, const QString &version) {
     if (!url.isValid() || url.scheme() != QStringLiteral("https") ||
-        url.host() != QStringLiteral("github.com") && !url.host().endsWith(QStringLiteral(".githubusercontent.com"))) {
+        (url.host() != QStringLiteral("github.com") && !url.host().endsWith(QStringLiteral(".githubusercontent.com")))) {
         emit downloadFailed(QStringLiteral("The update download URL isn't a trusted GitHub HTTPS URL."));
         return;
     }

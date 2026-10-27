@@ -34,6 +34,7 @@ private:
     QByteArray m_pullBuffer;
     QTreeWidget *m_models{};
     QLineEdit *m_modelName{};
+    QComboBox *m_popularModels{};
     QLineEdit *m_renameName{};
     QProgressBar *m_progress{};
     QLabel *m_status{};

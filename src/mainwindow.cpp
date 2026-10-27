@@ -13,6 +13,10 @@
 #include <QLineEdit>
 #include <QMessageBox>
 #include <QPushButton>
+#include <QPainter>
+#include <QPainterPath>
+#include <QPixmap>
+#include <QIcon>
 #include <QScrollArea>
 #include <QScrollBar>
 #include <QSettings>
@@ -41,6 +45,20 @@ Palette paletteFor(const QString &name) {
     if(name=="Monokai") return {"#272822","#303127","#414339","#f8f8f2","#b8b8a8","#494a40","#a6e22e","#172006"};
     if(name=="Cyberpunk") return {"#100a20","#1a1030","#291743","#f7efff","#b6a0d4","#49316a","#ff4fd8","#26051f"};
     return {"#0b0e14","#111722","#171f2c","#e7edf7","#8d9bb0","#263246","#58a6ff","#07111f"};
+}
+QPixmap eclipseLogoPixmap(int size, const QColor &color) {
+    QPixmap pixmap(size, size);
+    pixmap.fill(Qt::transparent);
+    QPainter painter(&pixmap);
+    painter.setRenderHint(QPainter::Antialiasing, true);
+    painter.scale(size / 100.0, size / 100.0);
+    painter.setPen(QPen(color, 7.0, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+    painter.setBrush(Qt::NoBrush);
+    painter.drawEllipse(QRectF(3.5, 3.5, 93, 93));
+    painter.setPen(Qt::NoPen);
+    painter.setBrush(color);
+    painter.drawEllipse(QRectF(27, 10, 70, 80));
+    return pixmap;
 }
 QString appStyleSheet(const QString &theme) {
     const Palette p=paletteFor(theme);
@@ -147,8 +165,8 @@ void MainWindow::buildUi() {
     auto *root=new QWidget(this); auto *outer=new QHBoxLayout(root); outer->setContentsMargins(0,0,0,0); outer->setSpacing(0);
     auto *side=new QFrame(root); side->setObjectName("Sidebar"); side->setFixedWidth(260);
     auto *sl=new QVBoxLayout(side); sl->setContentsMargins(17,22,17,18); sl->setSpacing(12);
-    auto *brandrow=new QHBoxLayout; auto *symbol=new QLabel("◐",side); symbol->setStyleSheet("color:#58a6ff;font-size:27px;font-weight:700;");
-    auto *brand=new QLabel("ECLIPSE INFER",side); brand->setObjectName("Brand"); brandrow->addWidget(symbol);brandrow->addWidget(brand,1);sl->addLayout(brandrow);
+    auto *brandrow=new QHBoxLayout; m_logoLabel=new QLabel(side); m_logoLabel->setFixedSize(32,32); m_logoLabel->setScaledContents(true);
+    auto *brand=new QLabel("ECLIPSE INFER",side); brand->setObjectName("Brand"); brandrow->addWidget(m_logoLabel);brandrow->addWidget(brand,1);sl->addLayout(brandrow);
     auto *tag=new QLabel("YOUR LOCAL AI WORKSPACE",side);tag->setObjectName("Eyebrow");sl->addWidget(tag);sl->addSpacing(10);
     auto *newButton=button("＋   New chat","Primary",side);sl->addWidget(newButton);connect(newButton,&QPushButton::clicked,this,&MainWindow::newChat);
     auto *recent=new QLabel("RECENT",side);recent->setObjectName("Eyebrow");sl->addWidget(recent);
@@ -186,6 +204,11 @@ void MainWindow::buildUi() {
 void MainWindow::applyTheme(const QString &theme){
     const QString resolved=theme=="System"?(QGuiApplication::styleHints()->colorScheme()==Qt::ColorScheme::Light?"Light":"Eclipse Dark"):theme;
     m_dark=resolved!="Light"&&resolved!="Solarized Light";
+    const Palette p=paletteFor(resolved);
+    const QIcon logoIcon(QPixmap::fromImage(eclipseLogoPixmap(128,QColor(p.accent)).toImage()));
+    if(m_logoLabel)m_logoLabel->setPixmap(eclipseLogoPixmap(64,QColor(p.accent)));
+    setWindowIcon(logoIcon);
+    qApp->setWindowIcon(logoIcon);
     qApp->setStyleSheet(appStyleSheet(resolved));
 }
 void MainWindow::refreshModels(){m_status->setText("●  Checking Ollama…");m_ollama.refreshModels();}

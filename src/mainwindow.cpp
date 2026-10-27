@@ -30,6 +30,8 @@
 #include <QSpinBox>
 #include <QStyleHints>
 #include <QTextBrowser>
+#include <QTextEdit>
+#include <QShortcut>
 #include <QTextDocument>
 #include <QUuid>
 #include <QJsonDocument>
@@ -122,7 +124,7 @@ QString appStyleSheet(const QString &theme) {
       "QPushButton:hover{border-color:%7;} QPushButton#Primary{background:%7;color:%8;border:0;font-weight:700;padding:11px 16px;}"
       "QPushButton#CodeMode{background:transparent;border:1px solid %6;color:%4;padding:8px 11px;} QPushButton#CodeMode:checked{background:%7;color:%8;border-color:%7;font-weight:700;}"
       "QPushButton#Ghost{background:transparent;border-color:transparent;text-align:left;} QPushButton#Ghost:hover{background:%5;border-color:%6;}"
-      "QLineEdit,QComboBox,QSpinBox{background:%3;border:1px solid %6;border-radius:8px;padding:9px;}"
+      "QLineEdit,QTextEdit,QComboBox,QSpinBox{background:%3;border:1px solid %6;border-radius:8px;padding:9px;}"
       "QLineEdit:focus,QComboBox:focus{border-color:%7;} QSlider::groove:horizontal{height:4px;background:%6;}"
       "QSlider::handle:horizontal{background:%7;width:14px;margin:-5px 0;border-radius:7px;}"
       "QScrollArea{border:0;background:transparent;} QScrollBar:vertical{background:transparent;width:8px;}"
@@ -285,7 +287,7 @@ void MainWindow::buildUi() {
     m_scroll=new QScrollArea(main);m_scroll->setWidgetResizable(true);m_scroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     m_messageHost=new QWidget(m_scroll);m_messageLayout=new QVBoxLayout(m_messageHost);m_messageLayout->setContentsMargins(0,8,0,8);m_messageLayout->setSpacing(14);m_messageLayout->addStretch();m_scroll->setWidget(m_messageHost);ml->addWidget(m_scroll,1);
     auto *composer=new QFrame(main);composer->setObjectName("Composer");auto *cl=new QVBoxLayout(composer);cl->setContentsMargins(12,10,12,10);
-    m_input=new QLineEdit(composer);m_input->setPlaceholderText("Message your model…");m_input->setMinimumHeight(42);cl->addWidget(m_input);
+    m_input=new QTextEdit(composer);m_input->setPlaceholderText("Message your model…  (Ctrl+Enter to send)");m_input->setMinimumHeight(68);m_input->setMaximumHeight(140);m_input->setTabChangesFocus(false);cl->addWidget(m_input);
     auto *cb=new QHBoxLayout;
     m_codeModeButton=button("</>  Code Mode","CodeMode",composer);m_codeModeButton->setCheckable(true);
     m_codeModeButton->setChecked(QSettings().value("codeMode",false).toBool());m_codeMode=m_codeModeButton->isChecked();
@@ -295,7 +297,7 @@ void MainWindow::buildUi() {
     cb->addWidget(m_codeModeButton);cb->addStretch();
     m_stop=button("Stop","",composer);m_stop->setToolTip("Cancel the current generation");m_stop->setVisible(false);cb->addWidget(m_stop);m_send=button("Send  ↗","Primary",composer);cb->addWidget(m_send);cl->addLayout(cb);ml->addWidget(composer);
     connect(m_stop,&QPushButton::clicked,this,[this](){if(m_busy){m_stop->setEnabled(false);m_stop->setText("Stopping…");m_providerClient.cancel();}});
-    connect(m_send,&QPushButton::clicked,this,&MainWindow::sendMessage);connect(m_input,&QLineEdit::returnPressed,this,&MainWindow::sendMessage);
+    connect(m_send,&QPushButton::clicked,this,&MainWindow::sendMessage);auto *sendShortcut=new QShortcut(QKeySequence(Qt::CTRL|Qt::Key_Return),m_input);connect(sendShortcut,&QShortcut::activated,this,&MainWindow::sendMessage);auto *sendShortcut2=new QShortcut(QKeySequence(Qt::CTRL|Qt::Key_Enter),m_input);connect(sendShortcut2,&QShortcut::activated,this,&MainWindow::sendMessage);
     outer->addWidget(main,1);setCentralWidget(root);
 }
 void MainWindow::applyTheme(const QString &theme){
@@ -344,7 +346,7 @@ void MainWindow::addMessageCard(const QString &role,const QString &content,bool 
     if(streaming){m_streamView=view;m_streamThinkingView=thinkingView;}
 }
 void MainWindow::sendMessage() {
-    if(m_busy)return;const QString prompt=m_input->text().trimmed();if(prompt.isEmpty())return;
+    if(m_busy)return;const QString prompt=m_input->toPlainText().trimmed();if(prompt.isEmpty())return;
     if(m_models->currentText().isEmpty()||m_models->currentText()=="No models installed"){QMessageBox::information(this,"No model selected","Choose a provider and model. Check Settings for endpoint and API-key configuration.");return;}
     if(m_messages.isEmpty()) {
         // Remove the welcome panel as soon as the first message is sent.

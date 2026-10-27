@@ -236,6 +236,7 @@ MainWindow::MainWindow(QWidget *parent):QMainWindow(parent) {
         });
         m_trayIcon->show();
     } else {
+        QApplication::setQuitOnLastWindowClosed(true);
         qWarning("Eclipse Infer: Windows system tray is not available.");
     }
     connect(QGuiApplication::styleHints(),&QStyleHints::colorSchemeChanged,this,[this](Qt::ColorScheme){

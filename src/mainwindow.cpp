@@ -33,8 +33,15 @@ QString appStyleSheet(bool dark) {
       "QSlider::handle:horizontal{background:#58a6ff;width:14px;margin:-5px 0;border-radius:7px;}"
       "QScrollArea{border:0;background:transparent;} QScrollBar:vertical{background:transparent;width:8px;}"
       "QScrollBar::handle:vertical{background:%6;min-height:24px;border-radius:4px;} QFrame#Composer{background:%3;border:1px solid %6;border-radius:14px;}"
-      "QFrame#MessageCard{background:%3;border:1px solid %6;border-radius:13px;} QTextBrowser{background:transparent;border:0;color:%2;}"
-      "QCheckBox{spacing:8px;}").arg(bg,fg,panel,muted,raised,border);
+      "QFrame#MessageCard,QFrame#UserMessage,QFrame#AssistantMessage{background:%3;border:1px solid %6;border-radius:13px;} "
+      "QFrame#UserMessage{background:%5;border-color:%6;} QFrame#AssistantMessage{background:%3;} "
+      "QTextBrowser{background:transparent;border:0;color:%2;selection-background-color:#244b78;} QTextBrowser a{color:#58a6ff;} QTextBrowser pre{background:%1;border:1px solid %6;border-radius:7px;padding:9px;} QTextBrowser code{font-family:Consolas,monospace;} "
+      "QCheckBox{spacing:8px;} QCheckBox::indicator{width:15px;height:15px;border:1px solid %6;border-radius:4px;background:%3;} "
+      "QCheckBox::indicator:checked{background:#58a6ff;border-color:#58a6ff;} "
+      "QPushButton:disabled{color:%4;background:%3;border-color:%6;} "
+      "QComboBox QAbstractItemView{background:%3;border:1px solid %6;selection-background-color:#244b78;} "
+      "QSpinBox::up-button,QSpinBox::down-button{width:18px;border:0;background:transparent;} "
+      "QToolTip{background:%3;color:%2;border:1px solid %6;padding:5px;}").arg(bg,fg,panel,muted,raised,border);
 }
 QPushButton *button(const QString &text,const QString &name,QWidget *parent) {
     auto *b=new QPushButton(text,parent); b->setObjectName(name); b->setCursor(Qt::PointingHandCursor); return b;
@@ -120,9 +127,12 @@ void MainWindow::buildUi() {
 void MainWindow::applyTheme(bool dark){m_dark=dark;qApp->setStyleSheet(appStyleSheet(dark));m_theme->setText(dark?"☼  Light mode":"◐  Dark mode");}
 void MainWindow::refreshModels(){m_status->setText("●  Checking Ollama…");m_ollama.refreshModels();}
 void MainWindow::addMessageCard(const QString &role,const QString &content,bool streaming) {
-    auto *card=new QFrame(m_messageHost);card->setObjectName("MessageCard");auto *layout=new QVBoxLayout(card);layout->setContentsMargins(16,12,16,12);layout->setSpacing(7);
-    auto *label=new QLabel((role=="user"?"YOU":"ECLIPSE INFER"),card);label->setStyleSheet("font-size:11px;font-weight:700;color:#8d9bb0;");layout->addWidget(label);
-    auto *view=new QTextBrowser(card);view->setReadOnly(true);view->setOpenExternalLinks(true);view->setMarkdown(content);view->setMinimumHeight(28);layout->addWidget(view);
+    auto *card=new QFrame(m_messageHost);card->setObjectName(role=="user"?"UserMessage":"AssistantMessage");
+    card->setProperty("messageRole",role);
+    auto *layout=new QVBoxLayout(card);layout->setContentsMargins(18,14,18,14);layout->setSpacing(9);
+    auto *label=new QLabel((role=="user"?"YOU":"ECLIPSE INFER"),card);label->setStyleSheet(QString("font-size:10px;font-weight:800;letter-spacing:1px;color:%1;").arg(role=="user"?"#58a6ff":"#8d9bb0"));layout->addWidget(label);
+    auto *view=new QTextBrowser(card);view->setReadOnly(true);view->setOpenExternalLinks(true);view->setMarkdown(content);view->setMinimumHeight(28);view->setFrameShape(QFrame::NoFrame);
+    view->setStyleSheet("QTextBrowser{background:transparent;border:0;padding:0;}");layout->addWidget(view);
     m_messageLayout->insertWidget(m_messageLayout->count()-1,card);if(streaming)m_streamView=view;
 }
 void MainWindow::sendMessage() {

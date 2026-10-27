@@ -18,6 +18,7 @@ public:
 signals:
     void connectionChanged(bool connected, const QString &message);
     void modelsReceived(const QStringList &models);
+    void modelsReceivedForProvider(const QString &provider, const QStringList &models);
     void tokenReceived(const QString &text);
     void thinkingReceived(const QString &text);
     void chatFinished();

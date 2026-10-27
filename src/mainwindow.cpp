@@ -442,43 +442,57 @@ void MainWindow::installDownloadedUpdate(const QString &path, const QString &ver
 #ifdef Q_OS_WIN
     const QString executable = QCoreApplication::applicationFilePath();
     const QFileInfo executableInfo(executable);
-    if (!executableInfo.dir().isWritable()) {
+    if (!QFileInfo(executableInfo.dir().absolutePath()).isWritable()) {
         QMessageBox::information(this, "Update downloaded",
             "The update was downloaded, but Eclipse Infer is installed in a protected folder. Open the GitHub release page and run the update with the required permissions.");
         QDesktopServices::openUrl(QUrl("https://github.com/LinkZelda99-cpp/Eclipse-Infer/releases/latest"));
         return;
     }
     const QString scriptPath = QDir(QStandardPaths::writableLocation(QStandardPaths::TempLocation))
-        .filePath("EclipseInfer-install-update.cmd");
+        .filePath("EclipseInfer-install-update.ps1");
+    auto psQuote = [](QString value) {
+        value.replace("'", "''");
+        return QString("'") + value + QString("'");
+    };
     const QString source = QDir::toNativeSeparators(path);
-    const QString target = QDir::toNativeSeparators(executable);
+    const QString targetDir = QDir::toNativeSeparators(executableInfo.dir().absolutePath());
+    const QString staging = QString("EclipseInfer-update-%1").arg(version);
+    const QString body = QStringLiteral(
+        "$ErrorActionPreference = 'Stop'\r\n"
+        "Start-Sleep -Seconds 3\r\n"
+        "$archive = %1\r\n"
+        "$targetDir = %2\r\n"
+        "$tempDir = Join-Path $env:TEMP %3\r\n"
+        "try {\r\n"
+        "  if (Test-Path $tempDir) { Remove-Item $tempDir -Recurse -Force }\r\n"
+        "  if ($archive.EndsWith('.zip', [System.StringComparison]::OrdinalIgnoreCase)) {\r\n"
+        "    Expand-Archive -LiteralPath $archive -DestinationPath $tempDir -Force\r\n"
+        "    Copy-Item -Path (Join-Path $tempDir '*') -Destination $targetDir -Recurse -Force\r\n"
+        "  } else { Copy-Item -LiteralPath $archive -Destination (Join-Path $targetDir 'EclipseInfer.exe') -Force }\r\n"
+        "  Start-Process (Join-Path $targetDir 'EclipseInfer.exe')\r\n"
+        "  Remove-Item $archive -Force -ErrorAction SilentlyContinue\r\n"
+        "  Remove-Item $tempDir -Recurse -Force -ErrorAction SilentlyContinue\r\n"
+        "} catch {\r\n"
+        "  Start-Process 'https://github.com/LinkZelda99-cpp/Eclipse-Infer/releases/latest'\r\n"
+        "  Write-Host ('Update failed: ' + $_.Exception.Message)\r\n"
+        "  Read-Host 'Press Enter to close'\r\n"
+        "} finally { Remove-Item -LiteralPath $MyInvocation.MyCommand.Path -Force -ErrorAction SilentlyContinue }\r\n")
+        .arg(psQuote(source), psQuote(targetDir), psQuote(staging));
     QFile script(scriptPath);
     if (!script.open(QIODevice::WriteOnly | QIODevice::Truncate | QIODevice::Text)) {
         QMessageBox::warning(this, "Update error", "Couldn't prepare the updater script.");
         return;
     }
-    const QString body = QStringLiteral(
-        "@echo off\r\n"
-        "timeout /t 3 /nobreak >nul\r\n"
-        "copy /Y \"%1\" \"%2\" >nul\r\n"
-        "if errorlevel 1 goto failed\r\n"
-        "start \"\" \"%2\"\r\n"
-        "del \"%1\"\r\n"
-        "del \"%~f0\"\r\n"
-        "exit /b 0\r\n"
-        ":failed\r\n"
-        "start \"\" \"https://github.com/LinkZelda99-cpp/Eclipse-Infer/releases/latest\"\r\n"
-        "pause\r\n"
-        "del \"%~f0\"\r\n").arg(source, target);
     script.write(body.toUtf8());
     script.close();
-    if (!QProcess::startDetached("cmd.exe", {"/c", "start", "", scriptPath})) {
+    if (!QProcess::startDetached("powershell.exe",
+        {"-NoProfile", "-ExecutionPolicy", "Bypass", "-File", scriptPath})) {
         QMessageBox::warning(this, "Update error", "Couldn't start the installer. You can download the release manually from GitHub.");
         QDesktopServices::openUrl(QUrl("https://github.com/LinkZelda99-cpp/Eclipse-Infer/releases/latest"));
         return;
     }
     QMessageBox::information(this, "Installing update",
-        QString("Eclipse Infer %1 has been downloaded. The app will close, replace its executable, and restart.").arg(version));
+        QString("Eclipse Infer %1 has been downloaded. The app will close, update its files, and restart.").arg(version));
     qApp->quit();
 #else
     Q_UNUSED(path);

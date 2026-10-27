@@ -160,6 +160,7 @@ QPushButton *button(const QString &text,const QString &name,QWidget *parent) {
 MainWindow::MainWindow(QWidget *parent):QMainWindow(parent) {
     resize(1280,820); setMinimumSize(880,600); buildUi();
     connect(&m_providerClient,&ProviderClient::modelsReceived,this,[this](const QStringList &models){
+        const QSignalBlocker modelBlocker(m_models);
         const QString old=m_models->currentText(); m_models->clear(); m_models->addItems(models);
         if(models.isEmpty()) m_models->addItem("No models installed");
         else {

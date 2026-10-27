@@ -2,14 +2,17 @@
 #include "ollamaclient.h"
 #include <QJsonArray>
 #include <QMainWindow>
+#include <QCloseEvent>
 #include <QPointer>
 #include <QStringList>
 class QComboBox; class QLineEdit; class QPushButton; class QScrollArea; class QSlider;
-class QSpinBox; class QTextBrowser; class QVBoxLayout; class QLabel; class QCheckBox;
+class QSpinBox; class QTextBrowser; class QVBoxLayout; class QLabel; class QCheckBox; class QSystemTrayIcon;
 class MainWindow final : public QMainWindow {
     Q_OBJECT
 public:
     explicit MainWindow(QWidget *parent = nullptr);
+protected:
+    void closeEvent(QCloseEvent *event) override;
 private:
     struct Message { QString role; QString content; QString thinking; };
     void buildUi();
@@ -25,6 +28,7 @@ private:
     void showSettings();
     QJsonArray apiMessages() const;
     OllamaClient m_ollama;
+    QSystemTrayIcon *m_trayIcon{};
     QComboBox *m_models{}; QLineEdit *m_input{}; QPushButton *m_send{}; QPushButton *m_codeModeButton{};
     QLabel *m_status{}; QLabel *m_chatTitle{}; QLabel *m_logoLabel{}; QPointer<QLabel> m_welcomeLogo;
     QScrollArea *m_scroll{}; QWidget *m_messageHost{}; QVBoxLayout *m_messageLayout{};

@@ -74,11 +74,12 @@ void UpdateManager::checkForUpdates(bool userInitiated) {
             const QJsonObject asset = value.toObject();
             const QString name = asset.value(QStringLiteral("name")).toString();
 #ifdef Q_OS_WIN
-            if (name.compare(QStringLiteral("EclipseInfer.exe"), Qt::CaseInsensitive) == 0 ||
-                name.compare(QStringLiteral("EclipseInfer-Windows-x64.exe"), Qt::CaseInsensitive) == 0) {
+            if (name.compare(QStringLiteral("EclipseInfer-Windows-x64.zip"), Qt::CaseInsensitive) == 0) {
                 assetUrl = QUrl(asset.value(QStringLiteral("browser_download_url")).toString());
                 break;
             }
+            if (assetUrl.isEmpty() && name.compare(QStringLiteral("EclipseInfer.exe"), Qt::CaseInsensitive) == 0)
+                assetUrl = QUrl(asset.value(QStringLiteral("browser_download_url")).toString());
 #endif
         }
         emit updateAvailable(latest, release.value(QStringLiteral("body")).toString(),
@@ -93,6 +94,7 @@ void UpdateManager::downloadUpdate(const QUrl &url, const QString &version) {
         return;
     }
     m_downloadVersion = version;
+    m_downloadIsZip = url.path().endsWith(QStringLiteral(".zip"), Qt::CaseInsensitive);
     QNetworkRequest request(url);
     request.setHeader(QNetworkRequest::UserAgentHeader, QStringLiteral("Eclipse-Infer-Updater"));
     QNetworkReply *reply = m_network->get(request);
@@ -111,7 +113,8 @@ void UpdateManager::downloadUpdate(const QUrl &url, const QString &version) {
             emit downloadFailed(QStringLiteral("Windows didn't provide a temporary folder for the update."));
             return;
         }
-        const QString path = QDir(tempDir).filePath(QStringLiteral("EclipseInfer-update-%1.exe").arg(m_downloadVersion));
+        const QString extension = m_downloadIsZip ? QStringLiteral("zip") : QStringLiteral("exe");
+        const QString path = QDir(tempDir).filePath(QStringLiteral("EclipseInfer-update-%1.%2").arg(m_downloadVersion, extension));
         QFile file(path);
         if (!file.open(QIODevice::WriteOnly) || file.write(data) != data.size()) {
             file.close();

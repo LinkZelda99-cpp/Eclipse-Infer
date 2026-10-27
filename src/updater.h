@@ -14,9 +14,9 @@ public:
     void downloadUpdate(const QUrl &url, const QString &version);
 
 signals:
-    void upToDate();
+    void upToDate(bool userInitiated);
     void updateAvailable(const QString &version, const QString &notes, const QUrl &assetUrl, const QUrl &releaseUrl);
-    void checkFailed(const QString &message);
+    void checkFailed(const QString &message, bool userInitiated);
     void downloadProgress(qint64 received, qint64 total);
     void downloadReady(const QString &path, const QString &version);
     void downloadFailed(const QString &message);

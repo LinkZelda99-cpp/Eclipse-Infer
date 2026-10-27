@@ -20,6 +20,7 @@
 #include <QSpinBox>
 #include <QStyleHints>
 #include <QTextBrowser>
+#include <QTextDocument>
 #include <QUuid>
 #include <QJsonDocument>
 #include <QVBoxLayout>
@@ -63,6 +64,22 @@ QString appStyleSheet(const QString &theme) {
       "QSpinBox::up-button,QSpinBox::down-button{width:18px;border:0;background:transparent;} "
       "QToolTip{background:%3;color:%2;border:1px solid %6;padding:5px;}").arg(bg,fg,panel,muted,raised,border,p.accent,p.accentText);
 }
+void setMarkdownContent(QTextBrowser *browser, const QString &markdown) {
+    if (!browser) return;
+    browser->document()->setDefaultStyleSheet(
+        "body { line-height: 1.4; }"
+        "h1, h2, h3, h4, h5, h6 { margin-top: 0.8em; margin-bottom: 0.35em; }"
+        "p { margin-top: 0.25em; margin-bottom: 0.55em; }"
+        "blockquote { margin-left: 0.5em; padding-left: 0.7em; border-left: 3px solid #58a6ff; color: #aab6c8; }"
+        "pre { background-color: #101722; border: 1px solid #2b3748; border-radius: 7px; padding: 9px; white-space: pre-wrap; }"
+        "code { font-family: Consolas, 'Cascadia Code', monospace; }"
+        "table { border-collapse: collapse; }"
+        "th, td { border: 1px solid #344155; padding: 5px 8px; }"
+        "th { background-color: #202b3a; font-weight: bold; }"
+        "a { color: #58a6ff; }"
+        "hr { color: #344155; }");
+    browser->document()->setMarkdown(markdown, QTextDocument::MarkdownDialectGitHub);
+}
 QPushButton *button(const QString &text,const QString &name,QWidget *parent) {
     auto *b=new QPushButton(text,parent); b->setObjectName(name); b->setCursor(Qt::PointingHandCursor); return b;
 }
@@ -88,7 +105,7 @@ MainWindow::MainWindow(QWidget *parent):QMainWindow(parent) {
     connect(&m_ollama,&OllamaClient::tokenReceived,this,[this](const QString &part){
         if(m_messages.isEmpty()||m_messages.last().role!="assistant")m_messages.append(Message{"assistant", QString{}, QString{}});
         m_messages.last().content+=part;
-        if(m_streamView)m_streamView->setMarkdown(m_messages.last().content);
+        if(m_streamView)setMarkdownContent(m_streamView, m_messages.last().content);
         m_scroll->verticalScrollBar()->setValue(m_scroll->verticalScrollBar()->maximum());
     });
     connect(&m_ollama,&OllamaClient::thinkingReceived,this,[this](const QString &part){
@@ -97,8 +114,8 @@ MainWindow::MainWindow(QWidget *parent):QMainWindow(parent) {
         // Persist thinking as it streams so saved chats retain it if generation is interrupted.
         saveCurrentConversation();
         if(m_streamThinkingLabel)m_streamThinkingLabel->setVisible(true);
-        if(m_streamThinkingView)m_streamThinkingView->setMarkdown(m_messages.last().thinking);
-        if(m_streamView && m_messages.last().content.isEmpty())m_streamView->setMarkdown("*Thinking…*");
+        if(m_streamThinkingView)setMarkdownContent(m_streamThinkingView, m_messages.last().thinking);
+        if(m_streamView && m_messages.last().content.isEmpty())setMarkdownContent(m_streamView, "*Thinking…*");
         m_scroll->verticalScrollBar()->setValue(m_scroll->verticalScrollBar()->maximum());
     });
     connect(&m_ollama,&OllamaClient::errorOccurred,this,[this](const QString &msg){
@@ -106,7 +123,7 @@ MainWindow::MainWindow(QWidget *parent):QMainWindow(parent) {
     });
     connect(&m_ollama,&OllamaClient::chatFinished,this,[this](){
         m_busy=false; m_send->setEnabled(true); m_send->setText("Send  ↗"); m_input->setEnabled(true);
-        if(m_streamView && !m_messages.isEmpty() && m_messages.last().content.isEmpty())m_streamView->setMarkdown("*No visible response returned.*");
+        if(m_streamView && !m_messages.isEmpty() && m_messages.last().content.isEmpty())setMarkdownContent(m_streamView, "*No visible response returned.*");
         m_streamView=nullptr;m_streamThinkingView=nullptr;m_streamThinkingLabel=nullptr;
         saveCurrentConversation();
         rebuildHistory();
@@ -174,7 +191,7 @@ void MainWindow::addMessageCard(const QString &role,const QString &content,bool 
         auto *thinkingToggle=button("▸  Model thinking","Ghost",card);
         thinkingToggle->setStyleSheet("QPushButton{background:transparent;border:0;padding:3px 0;text-align:left;color:#58a6ff;font-size:11px;font-weight:700;} QPushButton:hover{color:#8bc4ff;}");
         layout->addWidget(thinkingToggle);
-        auto *tv=new QTextBrowser(card);tv->setReadOnly(true);tv->setOpenExternalLinks(true);tv->setMarkdown(thinking);tv->setMinimumHeight(24);tv->setMaximumHeight(180);tv->setVisible(false);tv->setFrameShape(QFrame::NoFrame);
+        auto *tv=new QTextBrowser(card);tv->setReadOnly(true);tv->setOpenExternalLinks(true);setMarkdownContent(tv, thinking);tv->setMinimumHeight(24);tv->setMaximumHeight(180);tv->setVisible(false);tv->setFrameShape(QFrame::NoFrame);
         tv->setStyleSheet("QTextBrowser{background:transparent;border:0;padding:0;color:#8d9bb0;}");layout->addWidget(tv);thinkingView=tv;
         connect(thinkingToggle,&QPushButton::clicked,card,[thinkingToggle,tv](){
             const bool expand=!tv->isVisible();
@@ -183,7 +200,7 @@ void MainWindow::addMessageCard(const QString &role,const QString &content,bool 
         });
         if(streaming){m_streamThinkingLabel=thinkingToggle;}
     }
-    auto *view=new QTextBrowser(card);view->setReadOnly(true);view->setOpenExternalLinks(true);view->setMarkdown(content);view->setMinimumHeight(28);view->setFrameShape(QFrame::NoFrame);
+    auto *view=new QTextBrowser(card);view->setReadOnly(true);view->setOpenExternalLinks(true);setMarkdownContent(view, content);view->setMinimumHeight(28);view->setFrameShape(QFrame::NoFrame);
     view->setStyleSheet("QTextBrowser{background:transparent;border:0;padding:0;}");layout->addWidget(view);
     m_messageLayout->insertWidget(m_messageLayout->count()-1,card);
     if(streaming){m_streamView=view;m_streamThinkingView=thinkingView;}

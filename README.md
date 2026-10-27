@@ -11,7 +11,9 @@ A C++20 / Qt 6 desktop AI client for local models and hosted model APIs.
 - Local Ollama model discovery and chat
 - OpenAI-compatible API support for OpenAI, OpenRouter, Groq, Together AI, DeepSeek, Mistral, LM Studio, llama.cpp server, vLLM, LocalAI, and compatible custom endpoints
 - Native streaming adapters for Anthropic Messages and Google Gemini generate-content APIs
-- Searchable model picker with per-provider remembered selections\n- Dedicated Ollama Model Manager: browse installed models, download from the Ollama library with progress, rename (copy then remove), and delete with confirmation\n- Model discovery for supported provider APIs
+- Searchable model picker with per-provider remembered selections
+- Dedicated Ollama Model Manager: browse installed models, download from the Ollama library with progress, rename (copy then remove), and delete with confirmation
+- Model discovery for supported provider APIs
 - API keys masked in the settings UI; on Windows, keys are stored using Windows Credential Manager
 - Endpoint and provider preferences stored locally
 - Conversation history stored in the app's local settings
@@ -22,9 +24,10 @@ Provider APIs differ in their supported parameters and model capabilities. Some 
 
 1. Open **Settings**.
 2. Select the provider.
-3. Confirm or edit its API endpoint.\n4. Use **Model Manager** in the sidebar to download, rename, or delete Ollama models. For hosted providers, use that provider’s website or account tools to manage access and billing.
+3. Confirm or edit its API endpoint.
 4. Enter an API key for hosted providers (local servers usually do not need one).
-5. Save, then use **Refresh** and select a model.
+5. Save, then use **Refresh** and search/select a model.
+6. Use **Model Manager** in the sidebar to download, rename, or delete Ollama models. For hosted providers, use that provider’s website or account tools to manage access and billing.
 
 Default endpoints are provided for each preset. The **Custom OpenAI-compatible** option can connect to other servers that implement the models-list and streaming chat-completions endpoints.
 

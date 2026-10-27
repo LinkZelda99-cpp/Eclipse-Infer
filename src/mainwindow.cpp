@@ -156,7 +156,7 @@ void MainWindow::addMessageCard(const QString &role,const QString &content,bool 
     auto *label=new QLabel((role=="user"?"YOU":"ECLIPSE INFER"),card);label->setStyleSheet(QString("font-size:10px;font-weight:800;letter-spacing:1px;color:%1;").arg(role=="user"?"#58a6ff":"#8d9bb0"));layout->addWidget(label);
     QPointer<QTextBrowser> thinkingView;
     if(role=="assistant"){
-        auto *thinkingToggle=button(QString("%1  Model thinking").arg(thinking.isEmpty()?"▸":"▾"),"Ghost",card);
+        auto *thinkingToggle=button("▸  Model thinking","Ghost",card);
         thinkingToggle->setStyleSheet("QPushButton{background:transparent;border:0;padding:3px 0;text-align:left;color:#58a6ff;font-size:11px;font-weight:700;} QPushButton:hover{color:#8bc4ff;}");
         layout->addWidget(thinkingToggle);
         auto *tv=new QTextBrowser(card);tv->setReadOnly(true);tv->setOpenExternalLinks(true);tv->setMarkdown(thinking);tv->setMinimumHeight(24);tv->setMaximumHeight(180);tv->setVisible(false);tv->setFrameShape(QFrame::NoFrame);
@@ -206,7 +206,7 @@ void MainWindow::showWelcome() {
     auto *hint=new QLabel("Choose a model above and ask it anything.",w);hint->setAlignment(Qt::AlignCenter);hint->setStyleSheet("color:#8d9bb0;font-size:11px;");l->addWidget(hint);m_messageLayout->insertWidget(0,w);
 }
 QJsonArray MainWindow::apiMessages() const {
-    QJsonArray a;for(const auto &m:m_messages){QJsonObject o;o.insert("role",m.role);o.insert("content",m.content);if(!m.thinking.isEmpty())o.insert("thinking",m.thinking);a.append(o);}return a;
+    QJsonArray a;for(const auto &m:m_messages){QJsonObject o;o.insert("role",m.role);o.insert("content",m.content);a.append(o);}return a;
 }
 void MainWindow::saveCurrentConversation() {
     if(m_conversationId.isEmpty()||m_messages.isEmpty())return;

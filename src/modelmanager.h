@@ -2,6 +2,8 @@
 
 #include <QDialog>
 #include <QNetworkAccessManager>
+#include <QNetworkReply>
+#include <QByteArray>
 #include <QPointer>
 
 class QComboBox;

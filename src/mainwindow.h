@@ -25,7 +25,7 @@ private:
     void showSettings();
     QJsonArray apiMessages() const;
     OllamaClient m_ollama;
-    QComboBox *m_models{}; QLineEdit *m_input{}; QPushButton *m_send{};
+    QComboBox *m_models{}; QLineEdit *m_input{}; QPushButton *m_send{}; QPushButton *m_codeModeButton{};
     QLabel *m_status{}; QLabel *m_chatTitle{};
     QScrollArea *m_scroll{}; QWidget *m_messageHost{}; QVBoxLayout *m_messageLayout{};
     QSlider *m_temperature{}; QCheckBox *m_thinking{};
@@ -34,5 +34,5 @@ private:
     QString m_title;
     QString m_conversationId;
     QStringList m_historyIds;
-    bool m_dark{true}; bool m_busy{false};
+    bool m_dark{true}; bool m_busy{false}; bool m_codeMode{false};
 };

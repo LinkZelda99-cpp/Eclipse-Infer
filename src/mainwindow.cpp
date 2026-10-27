@@ -24,29 +24,44 @@
 #include <QJsonDocument>
 #include <QVBoxLayout>
 namespace {
-QString appStyleSheet(bool dark) {
-    const QString bg=dark?"#0b0e14":"#f4f6fa", panel=dark?"#111722":"#ffffff";
-    const QString raised=dark?"#171f2c":"#e9edf5", fg=dark?"#e7edf7":"#182235";
-    const QString muted=dark?"#8d9bb0":"#667085", border=dark?"#263246":"#d7deea";
+struct Palette { QString bg, panel, raised, fg, muted, border, accent, accentText; };
+Palette paletteFor(const QString &name) {
+    if(name=="Light") return {"#f4f6fa","#ffffff","#e9edf5","#182235","#667085","#d7deea","#2563eb","#ffffff"};
+    if(name=="Midnight Blue") return {"#080f1f","#0d1930","#142440","#e5efff","#8fa9d0","#263b5e","#60a5fa","#07111f"};
+    if(name=="AMOLED Black") return {"#000000","#080808","#171717","#f5f5f5","#a3a3a3","#303030","#38bdf8","#031018"};
+    if(name=="Dracula") return {"#282a36","#303241","#44475a","#f8f8f2","#b7b9c9","#50536a","#bd93f9","#21182e"};
+    if(name=="Nord") return {"#2e3440","#3b4252","#434c5e","#eceff4","#aab4c4","#4c566a","#88c0d0","#17252a"};
+    if(name=="Solarized Dark") return {"#002b36","#073642","#0b414d","#eee8d5","#93a1a1","#24545d","#2aa198","#062b2b"};
+    if(name=="Solarized Light") return {"#fdf6e3","#eee8d5","#e5dfcc","#586e75","#839496","#d6cfbb","#268bd2","#ffffff"};
+    if(name=="Forest") return {"#0b1712","#11251b","#1b3326","#e4f4e8","#91b5a0","#2c4a38","#4ade80","#082012"};
+    if(name=="Sunset") return {"#1b1220","#29182a","#3a2032","#fff0e8","#c7a6b7","#54354d","#fb7185","#2b1018"};
+    if(name=="Rose Pine") return {"#191724","#1f1d2e","#26233a","#e0def4","#908caa","#403d52","#ebbcba","#24151a"};
+    if(name=="Monokai") return {"#272822","#303127","#414339","#f8f8f2","#b8b8a8","#494a40","#a6e22e","#172006"};
+    if(name=="Cyberpunk") return {"#100a20","#1a1030","#291743","#f7efff","#b6a0d4","#49316a","#ff4fd8","#26051f"};
+    return {"#0b0e14","#111722","#171f2c","#e7edf7","#8d9bb0","#263246","#58a6ff","#07111f"};
+}
+QString appStyleSheet(const QString &theme) {
+    const Palette p=paletteFor(theme);
+    const QString bg=p.bg, panel=p.panel, raised=p.raised, fg=p.fg, muted=p.muted, border=p.border;
     return QString("QWidget{background:%1;color:%2;} QFrame#Sidebar{background:%3;border-right:1px solid %6;}"
       "QLabel#Brand{font-size:19px;font-weight:700;letter-spacing:1px;} QLabel#Eyebrow{color:%4;font-size:10px;font-weight:700;letter-spacing:1.5px;}"
       "QLabel#Muted{color:%4;font-size:11px;} QPushButton{background:%5;border:1px solid %6;border-radius:9px;padding:9px 12px;}"
-      "QPushButton:hover{border-color:#58a6ff;} QPushButton#Primary{background:#58a6ff;color:#07111f;border:0;font-weight:700;padding:11px 16px;}"
+      "QPushButton:hover{border-color:%7;} QPushButton#Primary{background:%7;color:%8;border:0;font-weight:700;padding:11px 16px;}"
       "QPushButton#Ghost{background:transparent;border-color:transparent;text-align:left;} QPushButton#Ghost:hover{background:%5;border-color:%6;}"
       "QLineEdit,QComboBox,QSpinBox{background:%3;border:1px solid %6;border-radius:8px;padding:9px;}"
-      "QLineEdit:focus,QComboBox:focus{border-color:#58a6ff;} QSlider::groove:horizontal{height:4px;background:%6;}"
-      "QSlider::handle:horizontal{background:#58a6ff;width:14px;margin:-5px 0;border-radius:7px;}"
+      "QLineEdit:focus,QComboBox:focus{border-color:%7;} QSlider::groove:horizontal{height:4px;background:%6;}"
+      "QSlider::handle:horizontal{background:%7;width:14px;margin:-5px 0;border-radius:7px;}"
       "QScrollArea{border:0;background:transparent;} QScrollBar:vertical{background:transparent;width:8px;}"
       "QScrollBar::handle:vertical{background:%6;min-height:24px;border-radius:4px;} QFrame#Composer{background:%3;border:1px solid %6;border-radius:14px;}"
       "QFrame#MessageCard,QFrame#UserMessage,QFrame#AssistantMessage{background:%3;border:1px solid %6;border-radius:13px;} "
       "QFrame#UserMessage{background:%5;border-color:%6;} QFrame#AssistantMessage{background:%3;} "
       "QTextBrowser{background:transparent;border:0;color:%2;selection-background-color:#244b78;} QTextBrowser a{color:#58a6ff;} QTextBrowser pre{background:%1;border:1px solid %6;border-radius:7px;padding:9px;} QTextBrowser code{font-family:Consolas,monospace;} "
       "QCheckBox{spacing:8px;} QCheckBox::indicator{width:15px;height:15px;border:1px solid %6;border-radius:4px;background:%3;} "
-      "QCheckBox::indicator:checked{background:#58a6ff;border-color:#58a6ff;} "
+      "QCheckBox::indicator:checked{background:%7;border-color:%7;} "
       "QPushButton:disabled{color:%4;background:%3;border-color:%6;} "
-      "QComboBox QAbstractItemView{background:%3;border:1px solid %6;selection-background-color:#244b78;} "
+      "QComboBox QAbstractItemView{background:%3;border:1px solid %6;selection-background-color:%7;} "
       "QSpinBox::up-button,QSpinBox::down-button{width:18px;border:0;background:transparent;} "
-      "QToolTip{background:%3;color:%2;border:1px solid %6;padding:5px;}").arg(bg,fg,panel,muted,raised,border);
+      "QToolTip{background:%3;color:%2;border:1px solid %6;padding:5px;}").arg(bg,fg,panel,muted,raised,border,p.accent,p.accentText);
 }
 QPushButton *button(const QString &text,const QString &name,QWidget *parent) {
     auto *b=new QPushButton(text,parent); b->setObjectName(name); b->setCursor(Qt::PointingHandCursor); return b;
@@ -95,13 +110,11 @@ MainWindow::MainWindow(QWidget *parent):QMainWindow(parent) {
         rebuildHistory();
     });
     QSettings settings;
-    const QString theme=settings.value("theme","system").toString();
-    if(theme=="dark")applyTheme(true);
-    else if(theme=="light")applyTheme(false);
-    else applyTheme(QGuiApplication::styleHints()->colorScheme()!=Qt::ColorScheme::Light);
-    connect(QGuiApplication::styleHints(),&QStyleHints::colorSchemeChanged,this,[this](Qt::ColorScheme scheme){
+    const QString theme=settings.value("theme","Eclipse Dark").toString();
+    applyTheme(theme);
+    connect(QGuiApplication::styleHints(),&QStyleHints::colorSchemeChanged,this,[this](Qt::ColorScheme){
         QSettings s;
-        if(s.value("theme","system").toString()=="system")applyTheme(scheme!=Qt::ColorScheme::Light);
+        if(s.value("theme","Eclipse Dark").toString()=="System")applyTheme("System");
     });
     m_temperature->setValue(qRound(settings.value("temperature",0.7).toDouble()*10.0));
     m_context->setValue(settings.value("contextLength",8192).toInt());
@@ -128,10 +141,9 @@ void MainWindow::buildUi() {
     connect(m_temperature,&QSlider::valueChanged,this,[tempVal](int v){tempVal->setText(QString::number(v/10.0,'f',1));});
     auto *ctxRow=new QHBoxLayout;ctxRow->addWidget(new QLabel("Context length",side));ctxRow->addStretch();m_context=new QSpinBox(side);m_context->setRange(2048,131072);m_context->setSingleStep(2048);m_context->setValue(8192);m_context->setMaximumWidth(105);ctxRow->addWidget(m_context);sl->addLayout(ctxRow);
     m_thinking=new QCheckBox("Enable model thinking",side);m_thinking->setChecked(false);sl->addWidget(m_thinking);
-    auto *bottom=new QHBoxLayout;m_theme=button("◐  Theme","Ghost",side);bottom->addWidget(m_theme);auto *refresh=button("↻  Refresh","Ghost",side);bottom->addWidget(refresh);sl->addLayout(bottom);
+    auto *bottom=new QHBoxLayout;auto *refresh=button("↻  Refresh","Ghost",side);bottom->addWidget(refresh);sl->addLayout(bottom);
     auto *settingsButton=button("⚙  Settings","Ghost",side);sl->addWidget(settingsButton);
     connect(settingsButton,&QPushButton::clicked,this,&MainWindow::showSettings);
-    connect(m_theme,&QPushButton::clicked,this,[this](){applyTheme(!m_dark);QSettings s;s.setValue("theme",m_dark?"dark":"light");});
     connect(refresh,&QPushButton::clicked,this,&MainWindow::refreshModels);outer->addWidget(side);
     auto *main=new QWidget(root);auto *ml=new QVBoxLayout(main);ml->setContentsMargins(28,18,28,20);ml->setSpacing(13);
     auto *top=new QHBoxLayout;auto *mlabel=new QLabel("MODEL",main);mlabel->setObjectName("Eyebrow");top->addWidget(mlabel);
@@ -147,7 +159,11 @@ void MainWindow::buildUi() {
     connect(m_send,&QPushButton::clicked,this,&MainWindow::sendMessage);connect(m_input,&QLineEdit::returnPressed,this,&MainWindow::sendMessage);
     outer->addWidget(main,1);setCentralWidget(root);
 }
-void MainWindow::applyTheme(bool dark){m_dark=dark;qApp->setStyleSheet(appStyleSheet(dark));m_theme->setText(dark?"☼  Light mode":"◐  Dark mode");}
+void MainWindow::applyTheme(const QString &theme){
+    const QString resolved=theme=="System"?(QGuiApplication::styleHints()->colorScheme()==Qt::ColorScheme::Light?"Light":"Eclipse Dark"):theme;
+    m_dark=resolved!="Light"&&resolved!="Solarized Light";
+    qApp->setStyleSheet(appStyleSheet(resolved));
+}
 void MainWindow::refreshModels(){m_status->setText("●  Checking Ollama…");m_ollama.refreshModels();}
 void MainWindow::addMessageCard(const QString &role,const QString &content,bool streaming,const QString &thinking) {
     auto *card=new QFrame(m_messageHost);card->setObjectName(role=="user"?"UserMessage":"AssistantMessage");
@@ -249,8 +265,11 @@ void MainWindow::openConversation(const QString &id) {
 void MainWindow::showSettings() {
     QDialog dialog(this);dialog.setWindowTitle("Eclipse Infer Settings");dialog.setMinimumWidth(420);
     auto *layout=new QVBoxLayout(&dialog);auto *form=new QFormLayout;
-    auto *theme=new QComboBox(&dialog);theme->addItem("Follow system","system");theme->addItem("Dark","dark");theme->addItem("Light","light");
-    QSettings settings;int themeIndex=theme->findData(settings.value("theme","system"));if(themeIndex>=0)theme->setCurrentIndex(themeIndex);
+    auto *theme=new QComboBox(&dialog);
+    const QStringList themes={"System","Eclipse Dark","Light","Midnight Blue","AMOLED Black","Dracula","Nord","Solarized Dark","Solarized Light","Forest","Sunset","Rose Pine","Monokai","Cyberpunk"};
+    theme->addItems(themes);
+    QSettings settings;int themeIndex=theme->findText(settings.value("theme","Eclipse Dark").toString());if(themeIndex>=0)theme->setCurrentIndex(themeIndex);
+    connect(theme,&QComboBox::currentTextChanged,this,[this](const QString &name){applyTheme(name);});
     auto *defaultModel=new QComboBox(&dialog);for(int i=0;i<m_models->count();++i)if(m_models->itemText(i)!="No models installed")defaultModel->addItem(m_models->itemText(i));
     const QString preferred=settings.value("defaultModel",m_models->currentText()).toString();int modelIndex=defaultModel->findText(preferred);if(modelIndex>=0)defaultModel->setCurrentIndex(modelIndex);
     auto *historyLimit=new QComboBox(&dialog);historyLimit->addItem("10 conversations",10);historyLimit->addItem("20 conversations",20);historyLimit->addItem("30 conversations",30);
@@ -262,8 +281,8 @@ void MainWindow::showSettings() {
     connect(clearHistory,&QPushButton::clicked,&dialog,[this,&dialog](){if(QMessageBox::question(&dialog,"Delete saved chats","Permanently delete all saved conversation history?")==QMessageBox::Yes){QSettings s;const auto ids=s.value("conversationIds").toStringList();for(const auto &id:ids)s.remove("conversations/"+id);s.remove("conversationIds");m_historyIds.clear();rebuildHistory();}});
     connect(buttons,&QDialogButtonBox::rejected,&dialog,&QDialog::reject);
     connect(buttons,&QDialogButtonBox::accepted,&dialog,[this,&dialog,theme,defaultModel,historyLimit](){
-        QSettings s;s.setValue("theme",theme->currentData().toString());s.setValue("defaultModel",defaultModel->currentText());s.setValue("historyLimit",historyLimit->currentData().toInt());
-        applyTheme(theme->currentData().toString()=="light"?false:theme->currentData().toString()=="dark"?true:QGuiApplication::styleHints()->colorScheme()!=Qt::ColorScheme::Light);
+        QSettings s;s.setValue("theme",theme->currentText());s.setValue("defaultModel",defaultModel->currentText());s.setValue("historyLimit",historyLimit->currentData().toInt());
+        applyTheme(theme->currentText());
         dialog.accept();
     });
     dialog.exec();

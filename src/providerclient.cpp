@@ -62,8 +62,9 @@ void ProviderClient::refreshModels()
     }
     if (m_provider == "OpenRouter")
         request.setRawHeader("HTTP-Referer", "https://austinmcdonald.dev");
+    const QString requestedProvider = m_provider;
     auto *reply = m_network.get(request);
-    connect(reply, &QNetworkReply::finished, this, [this, reply, ollama, gemini]() {
+    connect(reply, &QNetworkReply::finished, this, [this, reply, ollama, gemini, requestedProvider]() {
         const QByteArray body = reply->readAll();
         if (reply->error() != QNetworkReply::NoError) {
             emit connectionChanged(false, QString("Connection failed: %1").arg(reply->errorString()));
@@ -87,8 +88,10 @@ void ProviderClient::refreshModels()
         }
         names.removeDuplicates();
         names.sort(Qt::CaseInsensitive);
+        emit modelsReceivedForProvider(requestedProvider, names);
         emit modelsReceived(names);
-        emit connectionChanged(true, QString("Connected to %1").arg(m_provider));
+        if (requestedProvider == m_provider)
+            emit connectionChanged(true, QString("Connected to %1").arg(requestedProvider));
         reply->deleteLater();
     });
 }

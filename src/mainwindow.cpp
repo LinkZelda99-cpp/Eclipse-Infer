@@ -571,7 +571,7 @@ void MainWindow::showWelcome() {
     m_welcomeLogo->setPixmap(eclipseLogoPixmap(112,QColor(paletteFor(QSettings().value("theme","Eclipse Dark").toString()=="System"?(QGuiApplication::styleHints()->colorScheme()==Qt::ColorScheme::Light?"Light":"Eclipse Dark"):QSettings().value("theme","Eclipse Dark").toString()).accent)));
     l->addWidget(m_welcomeLogo,0,Qt::AlignHCenter);
 
-    auto *title=new QLabel("Your AI. Your machine.",w);
+    auto *title=new QLabel("Your AI. Your workspace.",w);
     title->setAlignment(Qt::AlignCenter);
     title->setStyleSheet("font-size:34px;font-weight:700;letter-spacing:-0.5px;");
     l->addWidget(title);

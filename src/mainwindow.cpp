@@ -451,7 +451,7 @@ void MainWindow::saveCurrentConversation() {
     settings.setValue("conversations/"+m_conversationId+"/title",m_title.isEmpty()?"New conversation":m_title);
     settings.setValue("conversations/"+m_conversationId+"/messages",QString::fromUtf8(QJsonDocument(messages).toJson(QJsonDocument::Compact)));
     settings.setValue("conversations/"+m_conversationId+"/model",m_models->currentData(Qt::UserRole+1).toString().isEmpty()?m_models->currentText():m_models->currentData(Qt::UserRole+1).toString());
-    settings.setValue("conversations/"+m_conversationId+"/provider",m_provider->currentText());
+    settings.setValue("conversations/"+m_conversationId+"/provider",m_models->currentData(Qt::UserRole).toString().isEmpty()?m_provider->currentText():m_models->currentData(Qt::UserRole).toString());
     m_historyIds.removeAll(m_conversationId);m_historyIds.prepend(m_conversationId);
     while(m_historyIds.size()>settings.value("historyLimit",30).toInt()){const QString old=m_historyIds.takeLast();settings.remove("conversations/"+old);}
     settings.setValue("conversationIds",m_historyIds);

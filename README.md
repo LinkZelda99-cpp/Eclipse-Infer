@@ -7,11 +7,13 @@ A C++20 / Qt 6 desktop AI client for local models and hosted model APIs.
 - Native Qt desktop interface with theme selection, saved chat history, multiline prompts (Ctrl+Enter to send), Code Mode, adjustable temperature and context window, model-thinking display where supported, and a Stop control to cancel active generation
 - System-tray integration on Windows
 - Streaming chat responses
-- Provider selector and configurable API endpoint
+- One unified model selector; provider routing happens automatically when a model is selected
+- Configurable API endpoints and credentials in Settings (provider selection is only needed for initial setup)
 - Local Ollama model discovery and chat
 - OpenAI-compatible API support for OpenAI, OpenRouter, Groq, Together AI, DeepSeek, Mistral, LM Studio, llama.cpp server, vLLM, LocalAI, and compatible custom endpoints
 - Native streaming adapters for Anthropic Messages and Google Gemini generate-content APIs
-- Unified model picker: select a discovered model across providers and Eclipse Infer automatically switches to its provider; per-provider endpoints, credentials, remembered selections, and cached model lists
+- Unified model picker: choose a discovered model across configured providers without switching providers in the main UI; per-provider endpoints, credentials, remembered selections, and cached model lists
+- Automatic discovery for Ollama and common local OpenAI-compatible runtimes (LM Studio, llama.cpp, vLLM, and LocalAI); hosted model lists are refreshed when credentials are configured
 - Dedicated Ollama Model Manager: browse installed models, download from the Ollama library with progress, rename (copy then remove), and delete with confirmation
 - Model discovery for supported provider APIs
 - API keys masked in the settings UI; on Windows, keys are stored using Windows Credential Manager
@@ -22,12 +24,10 @@ Provider APIs differ in their supported parameters and model capabilities. Some 
 
 ## Provider setup
 
-1. Open **Settings**.
-2. Select the provider.
-3. Confirm or edit its API endpoint.
-4. Enter an API key for hosted providers (local servers usually do not need one).
-5. Save, then use **Refresh** and search/select a model.
-6. Use **Model Manager** in the sidebar to download, rename, or delete Ollama models. For hosted providers, use that provider’s website or account tools to manage access and billing.
+1. For local Ollama use, install/run Ollama; Eclipse Infer detects installed models automatically.
+2. To set up a hosted provider or another local runtime, open **Settings** once, select that provider, confirm its endpoint, and enter its API key if required.
+3. Return to the chat and select the model directly. Eclipse Infer routes each request to that model's provider automatically; you do not need to switch providers in the main window.
+4. Use **Model Manager** to see installed Ollama models, pick a popular model or type a model name, then choose **Add / Download model**. You can also rename or delete local Ollama models there.
 
 Default endpoints are provided for each preset. The **Custom OpenAI-compatible** option can connect to other servers that implement the models-list and streaming chat-completions endpoints.
 

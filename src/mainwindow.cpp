@@ -128,13 +128,13 @@ QString providerEndpoint(const QString &provider) {
 QString appStyleSheet(const QString &theme) {
     const Palette p=paletteFor(theme);
     const QString bg=p.bg, panel=p.panel, raised=p.raised, fg=p.fg, muted=p.muted, border=p.border;
-    return QString("QWidget{background:%1;color:%2;} QFrame#Sidebar{background:%3;border-right:1px solid %6;}"
-      "QLabel#Brand{font-size:19px;font-weight:700;letter-spacing:1px;} QLabel#Eyebrow{color:%4;font-size:10px;font-weight:700;letter-spacing:1.5px;}"
-      "QLabel#Muted{color:%4;font-size:11px;} QPushButton{background:%5;border:1px solid %6;border-radius:9px;padding:9px 12px;}"
+    return QString("QWidget{background:%1;color:%2;font-size:13px;} QFrame#Sidebar{background:%3;border-right:1px solid %6;}"
+      "QLabel#Brand{font-size:20px;font-weight:700;letter-spacing:0.5px;} QLabel#Eyebrow{color:%4;font-size:11px;font-weight:700;letter-spacing:1px;}"
+      "QLabel#Muted{color:%4;font-size:12px;} QPushButton{background:%5;border:1px solid %6;border-radius:9px;padding:9px 12px;}"
       "QPushButton:hover{border-color:%7;} QPushButton#Primary{background:%7;color:%8;border:0;font-weight:700;padding:11px 16px;}"
       "QPushButton#CodeMode{background:transparent;border:1px solid %6;color:%4;padding:8px 11px;} QPushButton#CodeMode:checked{background:%7;color:%8;border-color:%7;font-weight:700;}"
       "QPushButton#Ghost{background:transparent;border-color:transparent;text-align:left;} QPushButton#Ghost:hover{background:%5;border-color:%6;}"
-      "QLineEdit,QTextEdit,QComboBox,QSpinBox{background:%3;border:1px solid %6;border-radius:8px;padding:9px;}"
+      "QLineEdit,QTextEdit,QComboBox,QSpinBox{background:%3;border:1px solid %6;border-radius:8px;padding:10px;font-size:13px;}"
       "QLineEdit:focus,QComboBox:focus{border-color:%7;} QSlider::groove:horizontal{height:4px;background:%6;}"
       "QSlider::handle:horizontal{background:%7;width:14px;margin:-5px 0;border-radius:7px;}"
       "QScrollArea{border:0;background:transparent;} QScrollBar:vertical{background:transparent;width:8px;}"
@@ -346,7 +346,7 @@ MainWindow::MainWindow(QWidget *parent):QMainWindow(parent) {
 }
 void MainWindow::buildUi() {
     auto *root=new QWidget(this); auto *outer=new QHBoxLayout(root); outer->setContentsMargins(0,0,0,0); outer->setSpacing(0);
-    auto *side=new QFrame(root); side->setObjectName("Sidebar"); side->setFixedWidth(260);
+    auto *side=new QFrame(root); side->setObjectName("Sidebar"); side->setFixedWidth(286);
     auto *sl=new QVBoxLayout(side); sl->setContentsMargins(17,22,17,18); sl->setSpacing(12);
     auto *brandrow=new QHBoxLayout; m_logoLabel=new QLabel(side); m_logoLabel->setFixedSize(32,32); m_logoLabel->setScaledContents(true);
     auto *brand=new QLabel("ECLIPSE INFER",side); brand->setObjectName("Brand"); brandrow->addWidget(m_logoLabel);brandrow->addWidget(brand,1);sl->addLayout(brandrow);
@@ -384,7 +384,7 @@ void MainWindow::buildUi() {
         }
     });
     top->addWidget(m_models);
-    m_status=new QLabel("●  Connecting to Ollama…",main);m_status->setObjectName("Muted");top->addStretch();top->addWidget(m_status);ml->addLayout(top);
+    m_status=new QLabel("●  Connecting to Ollama…",main);m_status->setObjectName("Muted");m_status->setWordWrap(true);m_status->setMinimumHeight(22);ml->addLayout(top);ml->addWidget(m_status);
     m_chatTitle=new QLabel("New conversation",main);m_chatTitle->setStyleSheet("font-size:13px;font-weight:600;");ml->addWidget(m_chatTitle);
     m_scroll=new QScrollArea(main);m_scroll->setWidgetResizable(true);m_scroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     m_messageHost=new QWidget(m_scroll);m_messageLayout=new QVBoxLayout(m_messageHost);m_messageLayout->setContentsMargins(0,8,0,8);m_messageLayout->setSpacing(14);m_messageLayout->addStretch();m_scroll->setWidget(m_messageHost);ml->addWidget(m_scroll,1);
@@ -560,7 +560,7 @@ void MainWindow::showWelcome() {
     m_welcomeLogo=new QLabel(w);m_welcomeLogo->setAlignment(Qt::AlignCenter);m_welcomeLogo->setFixedSize(96,96);m_welcomeLogo->setScaledContents(true);m_welcomeLogo->setPixmap(eclipseLogoPixmap(96,QColor(paletteFor(QSettings().value("theme","Eclipse Dark").toString()=="System"?(QGuiApplication::styleHints()->colorScheme()==Qt::ColorScheme::Light?"Light":"Eclipse Dark"):QSettings().value("theme","Eclipse Dark").toString()).accent)));l->addWidget(m_welcomeLogo,0,Qt::AlignHCenter);
     auto *title=new QLabel("Your AI. Your machine.",w);title->setAlignment(Qt::AlignCenter);title->setStyleSheet("font-size:30px;font-weight:650;");l->addWidget(title);
     auto *sub=new QLabel("Streaming text chat for local and hosted models.",w);sub->setAlignment(Qt::AlignCenter);sub->setStyleSheet("color:#8d9bb0;font-size:14px;");l->addWidget(sub);
-    auto *hint=new QLabel("Includes Code Mode, adjustable temperature and context, model-thinking display when supported, saved chats, and Ollama model management. Image input, audio, and tool calling are not implemented yet.",w);hint->setAlignment(Qt::AlignCenter);hint->setStyleSheet("color:#8d9bb0;font-size:11px;");l->addWidget(hint);m_messageLayout->insertWidget(0,w);
+    auto *hint=new QLabel("Includes Code Mode, adjustable temperature and context, model-thinking display when supported, saved chats, and Ollama model management. Image input, audio, and tool calling are not implemented yet.",w);hint->setAlignment(Qt::AlignCenter);hint->setWordWrap(true);hint->setMaximumWidth(760);hint->setStyleSheet("color:#8d9bb0;font-size:13px;");l->addWidget(hint,0,Qt::AlignHCenter);m_messageLayout->insertWidget(0,w);
 }
 QJsonArray MainWindow::apiMessages() const {
     QJsonArray a;

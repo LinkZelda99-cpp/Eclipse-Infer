@@ -269,7 +269,7 @@ void MainWindow::buildUi() {
     m_temperature=new QSlider(Qt::Horizontal,side);m_temperature->setRange(0,20);m_temperature->setValue(7);sl->addWidget(m_temperature);
     connect(m_temperature,&QSlider::valueChanged,this,[tempVal](int v){tempVal->setText(QString::number(v/10.0,'f',1));});
     m_thinking=new QCheckBox("Enable model thinking (if supported)",side);m_thinking->setChecked(false);m_thinking->setToolTip("This option is provider/model dependent. Unsupported providers may ignore it.");sl->addWidget(m_thinking);
-    auto *contextRow=new QHBoxLayout;contextRow->addWidget(new QLabel("Context window",side));contextRow->addStretch();m_contextLength=new QSpinBox(side);m_contextLength->setRange(2048,131072);m_contextLength->setSingleStep(2048);m_contextLength->setValue(m_contextLength ? m_contextLength->value() : QSettings().value("contextLength",8192).toInt());m_contextLength->setSuffix(" tokens");m_contextLength->setToolTip("Requested context length. Local runtimes may honor it; hosted providers may ignore it or use their own limits.");m_contextLength->setFixedWidth(125);contextRow->addWidget(m_contextLength);sl->addLayout(contextRow);connect(m_contextLength,qOverload<int>(&QSpinBox::valueChanged),this,[](int v){QSettings().setValue("contextLength",v);});
+    auto *contextRow=new QHBoxLayout;contextRow->addWidget(new QLabel("Context window",side));contextRow->addStretch();m_contextLength=new QSpinBox(side);m_contextLength->setRange(2048,131072);m_contextLength->setSingleStep(2048);m_contextLength->setValue(QSettings().value("contextLength",8192).toInt());m_contextLength->setSuffix(" tokens");m_contextLength->setToolTip("Requested context length. Local runtimes may honor it; hosted providers may ignore it or use their own limits.");m_contextLength->setFixedWidth(125);contextRow->addWidget(m_contextLength);sl->addLayout(contextRow);connect(m_contextLength,qOverload<int>(&QSpinBox::valueChanged),this,[](int v){QSettings().setValue("contextLength",v);});
     auto *bottom=new QHBoxLayout;auto *refresh=button("↻  Refresh","Ghost",side);bottom->addWidget(refresh);sl->addLayout(bottom);
     auto *settingsButton=button("⚙  Settings","Ghost",side);sl->addWidget(settingsButton);
     connect(settingsButton,&QPushButton::clicked,this,&MainWindow::showSettings);
@@ -359,7 +359,7 @@ void MainWindow::sendMessage() {
     m_messages.append(Message{"user", prompt, QString{}});addMessageCard("user",prompt);m_input->clear();
     saveCurrentConversation();
     addMessageCard("assistant","*Generating…*",true);m_busy=true;m_send->setEnabled(false);m_send->setText("Generating…");m_input->setEnabled(false);if(m_stop){m_stop->setEnabled(true);m_stop->setText("Stop");m_stop->setVisible(true);}
-    m_providerClient.chat(m_models->currentText(),apiMessages(),m_thinking->isChecked(),m_temperature->value()/10.0,QSettings().value("contextLength",8192).toInt());
+    m_providerClient.chat(m_models->currentText(),apiMessages(),m_thinking->isChecked(),m_temperature->value()/10.0,m_contextLength ? m_contextLength->value() : QSettings().value("contextLength",8192).toInt());
 }
 void MainWindow::newChat() {
     if(m_busy)m_providerClient.cancel();

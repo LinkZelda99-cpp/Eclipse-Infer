@@ -1,5 +1,5 @@
 #pragma once
-#include "ollamaclient.h"
+#include "providerclient.h"
 #include <QJsonArray>
 #include <QMainWindow>
 #include <QCloseEvent>
@@ -27,9 +27,9 @@ private:
     void openConversation(const QString &id);
     void showSettings();
     QJsonArray apiMessages() const;
-    OllamaClient m_ollama;
+    ProviderClient m_providerClient;
     QSystemTrayIcon *m_trayIcon{};
-    QComboBox *m_models{}; QLineEdit *m_input{}; QPushButton *m_send{}; QPushButton *m_codeModeButton{};
+    QComboBox *m_provider{}; QComboBox *m_models{}; QLineEdit *m_input{}; QPushButton *m_send{}; QPushButton *m_codeModeButton{};
     QLabel *m_status{}; QLabel *m_chatTitle{}; QLabel *m_logoLabel{}; QPointer<QLabel> m_welcomeLogo;
     QScrollArea *m_scroll{}; QWidget *m_messageHost{}; QVBoxLayout *m_messageLayout{};
     QSlider *m_temperature{}; QCheckBox *m_thinking{};

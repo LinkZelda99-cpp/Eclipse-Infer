@@ -460,7 +460,7 @@ void MainWindow::showSettings() {
         storeApiKey(provider->currentText(),apiKey->text().trimmed());
         { const QSignalBlocker blocker(m_provider); m_provider->setCurrentText(provider->currentText()); }
         m_providerClient.configure(provider->currentText(),endpoint->text().trimmed(),apiKey->text().trimmed());
-        s.setValue("theme",theme->currentText());s.setValue("defaultModel",defaultModel->currentText());s.setValue("contextLength",contextLength->value());s.setValue("historyLimit",historyLimit->currentData().toInt());
+        s.setValue("theme",theme->currentText());s.setValue(QString("defaultModel/%1").arg(provider->currentText()),defaultModel->currentText());s.setValue("contextLength",contextLength->value());if(m_contextLength)m_contextLength->setValue(contextLength->value());s.setValue("historyLimit",historyLimit->currentData().toInt());
         applyTheme(theme->currentText());
         dialog.accept();
         refreshModels();

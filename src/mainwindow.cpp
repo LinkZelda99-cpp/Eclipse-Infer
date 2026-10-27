@@ -80,7 +80,7 @@ MainWindow::MainWindow(QWidget *parent):QMainWindow(parent) {
         if(m_messages.isEmpty()||m_messages.last().role!="assistant")m_messages.append(Message{"assistant", QString{}, QString{}});
         m_messages.last().thinking+=part;
         if(m_streamThinkingLabel)m_streamThinkingLabel->setVisible(true);
-        if(m_streamThinkingView){m_streamThinkingView->setVisible(true);m_streamThinkingView->setMarkdown(m_messages.last().thinking);}
+        if(m_streamThinkingView)m_streamThinkingView->setMarkdown(m_messages.last().thinking);
         if(m_streamView && m_messages.last().content.isEmpty())m_streamView->setMarkdown("*Thinking…*");
         m_scroll->verticalScrollBar()->setValue(m_scroll->verticalScrollBar()->maximum());
     });

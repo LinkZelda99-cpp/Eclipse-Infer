@@ -8,7 +8,8 @@ A C++20 and Qt 6 desktop client for Ollama, with a sleek Eclipse-inspired interf
 - Local Ollama model discovery and connection status
 - Streaming chat responses
 - Markdown message rendering
-- Thinking toggle for compatible models
+- Main-screen thinking toggle and live display of Ollama's separate `message.thinking` stream for compatible models
+- Model thinking text saved with the corresponding assistant message and restored when reopening a conversation
 - Temperature and context-length controls
 - Full conversation transcripts saved locally and reopened from the sidebar
 - Settings dialog for appearance, default model, and saved-history limits
@@ -57,7 +58,6 @@ The app sends prompts to the local Ollama server at 127.0.0.1:11434. This MVP in
 - Rename, delete, and search conversations
 - Copy message/code and regenerate responses
 - Syntax-highlighted code blocks
-- Expandable thinking panel
 - Pull, delete, and inspect Ollama models
 - System prompt editor and per-model settings
 - Image/file attachments for compatible models

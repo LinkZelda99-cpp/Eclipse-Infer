@@ -166,16 +166,35 @@ MainWindow::MainWindow(QWidget *parent):QMainWindow(parent) {
         settings.setValue(QString("providers/%1/cachedModels").arg(provider), models);
         // Cache older results, but never let them replace the currently selected provider's model list.
         if (!m_provider || m_provider->currentText() != provider) return;
+        // Build one model catalog across every provider we've discovered so far.
+        // Each item carries its real provider and model separately, so choosing a model
+        // automatically switches the active provider without opening Settings.
+        const QString oldProvider=m_provider->currentText();
+        const QString oldModel=m_models->currentData(Qt::UserRole+1).toString();
         const QSignalBlocker modelBlocker(m_models);
-        const QString old=m_models->currentText(); m_models->clear(); m_models->addItems(models);
-        if(models.isEmpty()) m_models->addItem("No models available");
-        else {
-            const QString preferred=settings.value(QString("defaultModel/%1").arg(provider),old).toString();
-            int i=m_models->findText(preferred);
-            if(i<0)i=m_models->findText(old);
-            if(i>=0)m_models->setCurrentIndex(i);
+        m_models->clear();
+        for(const QString &providerName : ProviderClient::providers()) {
+            const QStringList providerModels=settings.value(QString("providers/%1/cachedModels").arg(providerName)).toStringList();
+            for(const QString &modelName : providerModels) {
+                m_models->addItem(QString("%1  ·  %2").arg(modelName,providerName));
+                const int row=m_models->count()-1;
+                m_models->setItemData(row,providerName,Qt::UserRole);
+                m_models->setItemData(row,modelName,Qt::UserRole+1);
+            }
         }
-        m_models->setEnabled(!models.isEmpty());
+        if(m_models->count()==0) m_models->addItem("Discovering models…");
+        int selected=-1;
+        for(int i=0;i<m_models->count();++i) {
+            if(m_models->itemData(i,Qt::UserRole).toString()==oldProvider &&
+               m_models->itemData(i,Qt::UserRole+1).toString()==oldModel) { selected=i; break; }
+        }
+        if(selected<0) {
+            for(int i=0;i<m_models->count();++i) {
+                if(m_models->itemData(i,Qt::UserRole).toString()==provider) { selected=i; break; }
+            }
+        }
+        if(selected>=0) m_models->setCurrentIndex(selected);
+        m_models->setEnabled(m_models->count()>0 && m_models->itemData(0,Qt::UserRole).isValid());
     });
     connect(&m_providerClient,&ProviderClient::connectionChanged,this,[this](bool ok,const QString &msg){
         m_status->setText(QString("●  %1").arg(msg));
@@ -283,7 +302,19 @@ void MainWindow::buildUi() {
     auto *top=new QHBoxLayout;auto *plabel=new QLabel("PROVIDER",main);plabel->setObjectName("Eyebrow");top->addWidget(plabel); m_provider=new QComboBox(main);m_provider->addItems(ProviderClient::providers());m_provider->setMinimumWidth(150);top->addWidget(m_provider); auto *mlabel=new QLabel("MODEL",main);mlabel->setObjectName("Eyebrow");top->addWidget(mlabel);
     m_models=new QComboBox(main);m_models->setMinimumWidth(220);m_models->setMaximumWidth(360);m_models->setEditable(true);m_models->setInsertPolicy(QComboBox::NoInsert);m_models->setMaxVisibleItems(18);m_models->setPlaceholderText("Search or choose a model…");m_models->setToolTip("Search models by typing. The list is refreshed from the selected provider.");
     if (m_models->completer()) { m_models->completer()->setCaseSensitivity(Qt::CaseInsensitive); m_models->completer()->setFilterMode(Qt::MatchContains); m_models->completer()->setCompletionMode(QCompleter::PopupCompletion); }
-    connect(m_models,&QComboBox::currentTextChanged,this,[this](const QString &model){ if(!model.trimmed().isEmpty() && model!="No models installed") QSettings().setValue(QString("defaultModel/%1").arg(m_provider->currentText()),model); });
+    connect(m_models,qOverload<int>(&QComboBox::currentIndexChanged),this,[this](int index){
+        if(index<0 || !m_models->itemData(index,Qt::UserRole).isValid()) return;
+        const QString provider=m_models->itemData(index,Qt::UserRole).toString();
+        const QString model=m_models->itemData(index,Qt::UserRole+1).toString();
+        QSettings().setValue(QString("defaultModel/%1").arg(provider),model);
+        if(m_provider->currentText()!=provider) {
+            const QSignalBlocker providerBlocker(m_provider);
+            m_provider->setCurrentText(provider);
+            QSettings().setValue("provider",provider);
+            m_providerClient.configure(provider,providerEndpoint(provider),storedApiKey(provider));
+            m_status->setText(QString("●  Selected %1").arg(provider));
+        }
+    });
     top->addWidget(m_models);
     m_status=new QLabel("●  Connecting to Ollama…",main);m_status->setObjectName("Muted");top->addStretch();top->addWidget(m_status);ml->addLayout(top);
     m_chatTitle=new QLabel("New conversation",main);m_chatTitle->setStyleSheet("font-size:13px;font-weight:600;");ml->addWidget(m_chatTitle);
@@ -327,17 +358,8 @@ void MainWindow::refreshModels(){
     m_status->setText(QString("●  Connecting to %1…").arg(provider));
     // Show the last known model list immediately, then refresh it in the background.
     const QStringList cached=QSettings().value(QString("providers/%1/cachedModels").arg(provider)).toStringList();
-    if(m_models){
-        const QSignalBlocker blocker(m_models);
-        m_models->clear();
-        if(cached.isEmpty()) m_models->addItem("Loading models…");
-        else {
-            m_models->addItems(cached);
-            const QString preferred=QSettings().value(QString("defaultModel/%1").arg(provider)).toString();
-            const int index=m_models->findText(preferred);
-            if(index>=0)m_models->setCurrentIndex(index);
-        }
-        m_models->setEnabled(!cached.isEmpty());
+    if(m_models && cached.isEmpty()) {
+        m_status->setText(QString("●  Discovering models for %1…").arg(provider));
     }
     m_providerClient.configure(provider,providerEndpoint(provider),storedApiKey(provider));
     m_providerClient.refreshModels();
@@ -369,7 +391,7 @@ void MainWindow::addMessageCard(const QString &role,const QString &content,bool 
 }
 void MainWindow::sendMessage() {
     if(m_busy)return;const QString prompt=m_input->toPlainText().trimmed();if(prompt.isEmpty())return;
-    if(m_models->currentText().isEmpty()||m_models->currentText()=="No models installed"){QMessageBox::information(this,"No model selected","Choose a provider and model. Check Settings for endpoint and API-key configuration.");return;}
+    if(m_models->currentText().isEmpty()||!m_models->currentData(Qt::UserRole).isValid()){QMessageBox::information(this,"No model selected","Choose a provider and model. Check Settings for endpoint and API-key configuration.");return;}
     if(m_messages.isEmpty()) {
         // Remove the welcome panel as soon as the first message is sent.
         if (m_messageLayout->count() > 1) {
@@ -383,7 +405,8 @@ void MainWindow::sendMessage() {
     m_messages.append(Message{"user", prompt, QString{}});addMessageCard("user",prompt);m_input->clear();
     saveCurrentConversation();
     addMessageCard("assistant","*Generating…*",true);m_busy=true;m_send->setEnabled(false);m_send->setText("Generating…");m_input->setEnabled(false);if(m_stop){m_stop->setEnabled(true);m_stop->setText("Stop");m_stop->setVisible(true);}
-    m_providerClient.chat(m_models->currentText(),apiMessages(),m_thinking->isChecked(),m_temperature->value()/10.0,m_contextLength ? m_contextLength->value() : QSettings().value("contextLength",8192).toInt());
+    const QString selectedModel=m_models->currentData(Qt::UserRole+1).toString().isEmpty()?m_models->currentText():m_models->currentData(Qt::UserRole+1).toString();
+    m_providerClient.chat(selectedModel,apiMessages(),m_thinking->isChecked(),m_temperature->value()/10.0,m_contextLength ? m_contextLength->value() : QSettings().value("contextLength",8192).toInt());
 }
 void MainWindow::newChat() {
     if(m_busy)m_providerClient.cancel();
@@ -423,7 +446,8 @@ void MainWindow::saveCurrentConversation() {
     QSettings settings;
     settings.setValue("conversations/"+m_conversationId+"/title",m_title.isEmpty()?"New conversation":m_title);
     settings.setValue("conversations/"+m_conversationId+"/messages",QString::fromUtf8(QJsonDocument(messages).toJson(QJsonDocument::Compact)));
-    settings.setValue("conversations/"+m_conversationId+"/model",m_models->currentText());
+    settings.setValue("conversations/"+m_conversationId+"/model",m_models->currentData(Qt::UserRole+1).toString().isEmpty()?m_models->currentText():m_models->currentData(Qt::UserRole+1).toString());
+    settings.setValue("conversations/"+m_conversationId+"/provider",m_provider->currentText());
     m_historyIds.removeAll(m_conversationId);m_historyIds.prepend(m_conversationId);
     while(m_historyIds.size()>settings.value("historyLimit",30).toInt()){const QString old=m_historyIds.takeLast();settings.remove("conversations/"+old);}
     settings.setValue("conversationIds",m_historyIds);
@@ -444,7 +468,7 @@ void MainWindow::openConversation(const QString &id) {
     QSettings settings;const QString raw=settings.value("conversations/"+id+"/messages").toString();
     const auto document=QJsonDocument::fromJson(raw.toUtf8());if(!document.isArray())return;
     m_messages.clear();m_conversationId=id;m_title=settings.value("conversations/"+id+"/title").toString();
-    const QString model=settings.value("conversations/"+id+"/model").toString();int modelIndex=m_models->findText(model);if(modelIndex>=0)m_models->setCurrentIndex(modelIndex);
+    const QString model=settings.value("conversations/"+id+"/model").toString();const QString provider=settings.value("conversations/"+id+"/provider",m_provider->currentText()).toString();int modelIndex=-1;for(int i=0;i<m_models->count();++i)if(m_models->itemData(i,Qt::UserRole).toString()==provider&&m_models->itemData(i,Qt::UserRole+1).toString()==model){modelIndex=i;break;}if(modelIndex>=0)m_models->setCurrentIndex(modelIndex);
     while(m_messageLayout->count()>1){auto *item=m_messageLayout->takeAt(0);if(item->widget())item->widget()->deleteLater();delete item;}
     for(const auto &value:document.array()){
         const auto object=value.toObject();const QString role=object.value("role").toString();const QString content=object.value("content").toString();const QString thinking=object.value("thinking").toString();

@@ -18,6 +18,7 @@
 #include <QVBoxLayout>
 #include <QDateTime>
 #include <QUrl>
+#include <QComboBox>
 
 namespace {
 const QUrl ollamaUrl(const QString &path) {
@@ -45,8 +46,8 @@ ModelManagerDialog::ModelManagerDialog(QWidget *parent) : QDialog(parent) {
     heading->setStyleSheet(QStringLiteral("font-size:20px;font-weight:700;"));
     root->addWidget(heading);
     auto *description = new QLabel(
-        QStringLiteral("Browse, download, rename, and remove models installed in Ollama. "
-                       "Cloud-provider models are hosted by those services, so Eclipse Infer cannot install or delete them."),
+        QStringLiteral("Local Ollama models are detected automatically when this window opens. Choose a popular model or type a model name, then select Add / Download model. "
+                       "Cloud models are discovered in the main selector after you configure that provider in Settings."),
         this);
     description->setWordWrap(true);
     root->addWidget(description);
@@ -66,13 +67,23 @@ ModelManagerDialog::ModelManagerDialog(QWidget *parent) : QDialog(parent) {
 
     auto *downloadGroup = new QFormLayout;
     m_modelName = new QLineEdit(this);
-    m_modelName->setPlaceholderText(QStringLiteral("e.g. qwen2.5:7b or llama3.2"));
+    m_modelName->setPlaceholderText(QStringLiteral("Or type any Ollama model, e.g. qwen2.5:7b"));
     m_modelName->setClearButtonEnabled(true);
-    downloadGroup->addRow(QStringLiteral("Download from the Ollama library"), m_modelName);
+    m_popularModels = new QComboBox(this);
+    m_popularModels->addItems({QStringLiteral("Choose a popular model…"), QStringLiteral("qwen2.5:7b"),
+        QStringLiteral("llama3.2"), QStringLiteral("gemma3:4b"), QStringLiteral("deepseek-r1:7b"),
+        QStringLiteral("mistral:7b"), QStringLiteral("phi4:14b")});
+    connect(m_popularModels, &QComboBox::currentTextChanged, this, [this](const QString &name) {
+        if (m_popularModels->currentIndex() > 0) m_modelName->setText(name);
+    });
+    auto *addModelRow = new QHBoxLayout;
+    addModelRow->addWidget(m_popularModels);
+    addModelRow->addWidget(m_modelName, 1);
+    downloadGroup->addRow(QStringLiteral("Add a local model"), addModelRow);
     root->addLayout(downloadGroup);
 
     auto *actions = new QHBoxLayout;
-    m_pullButton = new QPushButton(QStringLiteral("Download model"), this);
+    m_pullButton = new QPushButton(QStringLiteral("Add / Download model"), this);
     m_refreshButton = new QPushButton(QStringLiteral("Refresh list"), this);
     m_deleteButton = new QPushButton(QStringLiteral("Delete selected"), this);
     m_renameButton = new QPushButton(QStringLiteral("Rename selected"), this);

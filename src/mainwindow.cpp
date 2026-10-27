@@ -103,7 +103,6 @@ MainWindow::MainWindow(QWidget *parent):QMainWindow(parent) {
         QSettings s;
         if(s.value("theme","system").toString()=="system")applyTheme(scheme!=Qt::ColorScheme::Light);
     });
-    QSettings settings;
     m_temperature->setValue(qRound(settings.value("temperature",0.7).toDouble()*10.0));
     m_context->setValue(settings.value("contextLength",8192).toInt());
     m_thinking->setChecked(settings.value("thinking",false).toBool());

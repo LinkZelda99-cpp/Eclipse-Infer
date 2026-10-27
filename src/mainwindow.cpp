@@ -84,7 +84,7 @@ QString storedApiKey(const QString &provider) {
     const QString target = QStringLiteral("EclipseInfer/%1").arg(provider);
     PCREDENTIALW credential = nullptr;
     if (CredReadW(reinterpret_cast<LPCWSTR>(target.utf16()), CRED_TYPE_GENERIC, 0, &credential)) {
-        const QString key = QString::fromUtf8(static_cast<const char *>(credential->CredentialBlob), static_cast<qsizetype>(credential->CredentialBlobSize));
+        const QString key = QString::fromUtf8(reinterpret_cast<const char *>(credential->CredentialBlob), static_cast<qsizetype>(credential->CredentialBlobSize));
         CredFree(credential);
         return key;
     }

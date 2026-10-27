@@ -15,6 +15,7 @@
 #include <QPushButton>
 #include <QPainter>
 #include <QPainterPath>
+#include <QImage>
 #include <QPixmap>
 #include <QIcon>
 #include <QScrollArea>
@@ -47,18 +48,17 @@ Palette paletteFor(const QString &name) {
     return {"#0b0e14","#111722","#171f2c","#e7edf7","#8d9bb0","#263246","#58a6ff","#07111f"};
 }
 QPixmap eclipseLogoPixmap(int size, const QColor &color) {
-    QPixmap pixmap(size, size);
-    pixmap.fill(Qt::transparent);
-    QPainter painter(&pixmap);
-    painter.setRenderHint(QPainter::Antialiasing, true);
-    painter.scale(size / 100.0, size / 100.0);
-    painter.setPen(QPen(color, 7.0, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
-    painter.setBrush(Qt::NoBrush);
-    painter.drawEllipse(QRectF(3.5, 3.5, 93, 93));
-    painter.setPen(Qt::NoPen);
-    painter.setBrush(color);
-    painter.drawEllipse(QRectF(27, 10, 70, 80));
-    return pixmap;
+    QImage source(":/eclipse-logo.png");
+    if (source.isNull()) return QPixmap(size, size);
+    source = source.convertToFormat(QImage::Format_ARGB32);
+    for (int y = 0; y < source.height(); ++y) {
+        QRgb *line = reinterpret_cast<QRgb *>(source.scanLine(y));
+        for (int x = 0; x < source.width(); ++x) {
+            const int alpha = qAlpha(line[x]);
+            line[x] = qRgba(color.red(), color.green(), color.blue(), alpha);
+        }
+    }
+    return QPixmap::fromImage(source).scaled(size, size, Qt::KeepAspectRatio, Qt::SmoothTransformation);
 }
 QString appStyleSheet(const QString &theme) {
     const Palette p=paletteFor(theme);

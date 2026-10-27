@@ -157,7 +157,7 @@ QPushButton *button(const QString &text,const QString &name,QWidget *parent) {
 }
 MainWindow::MainWindow(QWidget *parent):QMainWindow(parent) {
     resize(1280,820); setMinimumSize(880,600); buildUi();
-    connect(&m_providerClient,&OllamaClient::modelsReceived,this,[this](const QStringList &models){
+    connect(&m_providerClient,&ProviderClient::modelsReceived,this,[this](const QStringList &models){
         const QString old=m_models->currentText(); m_models->clear(); m_models->addItems(models);
         if(models.isEmpty()) m_models->addItem("No models installed");
         else {
@@ -169,17 +169,17 @@ MainWindow::MainWindow(QWidget *parent):QMainWindow(parent) {
         }
         m_models->setEnabled(!models.isEmpty());
     });
-    connect(&m_ollama,&OllamaClient::connectionChanged,this,[this](bool ok,const QString &msg){
+    connect(&m_providerClient,&ProviderClient::connectionChanged,this,[this](bool ok,const QString &msg){
         m_status->setText(QString("●  %1").arg(msg));
         m_status->setStyleSheet(QString("color:%1;font-size:11px;").arg(ok?"#43c78b":"#e58c80"));
     });
-    connect(&m_ollama,&OllamaClient::tokenReceived,this,[this](const QString &part){
+    connect(&m_providerClient,&ProviderClient::tokenReceived,this,[this](const QString &part){
         if(m_messages.isEmpty()||m_messages.last().role!="assistant")m_messages.append(Message{"assistant", QString{}, QString{}});
         m_messages.last().content+=part;
         if(m_streamView)setMarkdownContent(m_streamView, m_messages.last().content);
         m_scroll->verticalScrollBar()->setValue(m_scroll->verticalScrollBar()->maximum());
     });
-    connect(&m_ollama,&OllamaClient::thinkingReceived,this,[this](const QString &part){
+    connect(&m_providerClient,&ProviderClient::thinkingReceived,this,[this](const QString &part){
         if(m_messages.isEmpty()||m_messages.last().role!="assistant")m_messages.append(Message{"assistant", QString{}, QString{}});
         m_messages.last().thinking+=part;
         // Persist thinking as it streams so saved chats retain it if generation is interrupted.
@@ -189,10 +189,10 @@ MainWindow::MainWindow(QWidget *parent):QMainWindow(parent) {
         if(m_streamView && m_messages.last().content.isEmpty())setMarkdownContent(m_streamView, "*Thinking…*");
         m_scroll->verticalScrollBar()->setValue(m_scroll->verticalScrollBar()->maximum());
     });
-    connect(&m_ollama,&OllamaClient::errorOccurred,this,[this](const QString &msg){
+    connect(&m_providerClient,&ProviderClient::errorOccurred,this,[this](const QString &msg){
         m_status->setText(QString("●  %1").arg(msg)); m_status->setStyleSheet("color:#e58c80;font-size:11px;");
     });
-    connect(&m_ollama,&OllamaClient::chatFinished,this,[this](){
+    connect(&m_providerClient,&ProviderClient::chatFinished,this,[this](){
         m_busy=false; m_send->setEnabled(true); m_send->setText("Send  ↗"); m_input->setEnabled(true);
         if(m_streamView && !m_messages.isEmpty() && m_messages.last().content.isEmpty())setMarkdownContent(m_streamView, "*No visible response returned.*");
         m_streamView=nullptr;m_streamThinkingView=nullptr;m_streamThinkingLabel=nullptr;
@@ -307,7 +307,7 @@ void MainWindow::closeEvent(QCloseEvent *event) {
     }
     event->accept();
 }
-void MainWindow::refreshModels(){m_status->setText("●  Checking Ollama…");m_ollama.refreshModels();}
+void MainWindow::refreshModels(){const QString provider=m_provider?m_provider->currentText():QSettings().value("provider","Ollama (local)").toString();m_status->setText(QString("●  Connecting to %1…").arg(provider));m_providerClient.configure(provider,providerEndpoint(provider),storedApiKey(provider));m_providerClient.refreshModels();}
 void MainWindow::addMessageCard(const QString &role,const QString &content,bool streaming,const QString &thinking) {
     auto *card=new QFrame(m_messageHost);card->setObjectName(role=="user"?"UserMessage":"AssistantMessage");
     card->setProperty("messageRole",role);
@@ -348,10 +348,10 @@ void MainWindow::sendMessage() {
     m_messages.append(Message{"user", prompt, QString{}});addMessageCard("user",prompt);m_input->clear();
     saveCurrentConversation();
     addMessageCard("assistant","*Generating…*",true);m_busy=true;m_send->setEnabled(false);m_send->setText("Generating…");m_input->setEnabled(false);
-    m_ollama.chat(m_models->currentText(),apiMessages(),m_thinking->isChecked(),m_temperature->value()/10.0,QSettings().value("contextLength",8192).toInt());
+    m_providerClient.chat(m_models->currentText(),apiMessages(),m_thinking->isChecked(),m_temperature->value()/10.0,QSettings().value("contextLength",8192).toInt());
 }
 void MainWindow::newChat() {
-    if(m_busy)m_ollama.cancel();
+    if(m_busy)m_providerClient.cancel();
     saveCurrentConversation();
     m_messages.clear();m_title.clear();m_conversationId.clear();m_streamView=nullptr;m_streamThinkingView=nullptr;m_streamThinkingLabel=nullptr;m_busy=false;m_send->setEnabled(true);m_send->setText("Send  ↗");m_input->setEnabled(true);m_chatTitle->setText("New conversation");
     while(m_messageLayout->count()>1){auto *item=m_messageLayout->takeAt(0);if(item->widget())item->widget()->deleteLater();delete item;}showWelcome();rebuildHistory();

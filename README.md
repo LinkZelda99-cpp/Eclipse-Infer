@@ -7,6 +7,8 @@ A C++20 and Qt 6 desktop client for Ollama, with a sleek Eclipse-inspired interf
 - System-aware light/dark theme with a remembered manual override
 - Local Ollama model discovery and connection status
 - Streaming chat responses
+- Persistent Code Mode toggle with a coding-focused system instruction for implementation, debugging, refactoring, and code review
+- Code Mode encourages language-tagged fenced examples, concise explanations, runnable solutions, and explicit assumptions instead of invented APIs or test results
 - GitHub-flavored Markdown rendering, including headings, paragraphs, links, emphasis, lists, task lists, blockquotes, tables, horizontal rules, and fenced code blocks
 - Styled code blocks with monospace formatting and readable table/blockquote layouts
 - Main-screen thinking toggle and live display of Ollama's separate `message.thinking` stream for compatible models

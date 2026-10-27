@@ -200,7 +200,7 @@ void ModelManagerDialog::pullModel() {
     QNetworkRequest request(ollamaUrl(QStringLiteral("/api/pull")));
     request.setHeader(QNetworkRequest::ContentTypeHeader, QStringLiteral("application/json"));
     request.setTransferTimeout(0);
-    m_pullReply = m_network.post(request, QJsonDocument(QJsonObject{{QStringLiteral("name"), name},
+    m_pullReply = m_network.post(request, QJsonDocument(QJsonObject{{QStringLiteral("model"), name},
         {QStringLiteral("stream"), true}}).toJson(QJsonDocument::Compact));
     connect(m_pullReply, &QIODevice::readyRead, this, &ModelManagerDialog::handlePullData);
     connect(m_pullReply, &QNetworkReply::finished, this, &ModelManagerDialog::finishPull);
@@ -283,7 +283,7 @@ void ModelManagerDialog::deleteModel() {
     setBusy(true, QStringLiteral("Deleting %1…").arg(name));
     QNetworkRequest request(ollamaUrl(QStringLiteral("/api/delete")));
     request.setHeader(QNetworkRequest::ContentTypeHeader, QStringLiteral("application/json"));
-    auto *reply = m_network.post(request, QJsonDocument(QJsonObject{{QStringLiteral("name"), name}}).toJson(QJsonDocument::Compact));
+    auto *reply = m_network.sendCustomRequest(request, "DELETE", QJsonDocument(QJsonObject{{QStringLiteral("model"), name}}).toJson(QJsonDocument::Compact));
     connect(reply, &QNetworkReply::finished, this, [this, reply, name]() {
         const auto error = reply->error();
         const QString errorText = reply->errorString();
@@ -332,7 +332,7 @@ void ModelManagerDialog::renameModel() {
         setBusy(true, QStringLiteral("Copy succeeded. Removing original model…"));
         QNetworkRequest deleteRequest(ollamaUrl(QStringLiteral("/api/delete")));
         deleteRequest.setHeader(QNetworkRequest::ContentTypeHeader, QStringLiteral("application/json"));
-        auto *deleteReply = m_network.post(deleteRequest, QJsonDocument(QJsonObject{{QStringLiteral("name"), source}}).toJson(QJsonDocument::Compact));
+        auto *deleteReply = m_network.sendCustomRequest(deleteRequest, "DELETE", QJsonDocument(QJsonObject{{QStringLiteral("model"), source}}).toJson(QJsonDocument::Compact));
         connect(deleteReply, &QNetworkReply::finished, this, [this, deleteReply, source, destination]() {
             const auto deleteError = deleteReply->error();
             const QString deleteErrorText = deleteReply->errorString();

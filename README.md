@@ -4,7 +4,7 @@ A C++20 / Qt 6 desktop AI client for local models and hosted model APIs.
 
 ## Current capabilities
 
-- Native Qt desktop interface with theme selection, chat history, Code Mode, temperature control, and model-thinking display where supported
+- Native Qt desktop interface with theme selection, saved chat history, Code Mode, adjustable temperature and context window, model-thinking display where supported, and a Stop control to cancel active generation
 - System-tray integration on Windows
 - Streaming chat responses
 - Provider selector and configurable API endpoint

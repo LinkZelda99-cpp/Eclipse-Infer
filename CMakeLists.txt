@@ -8,6 +8,10 @@ find_package(Qt6 6.5 REQUIRED COMPONENTS Widgets Network)
 qt_add_executable(EclipseInfer src/main.cpp src/mainwindow.h src/mainwindow.cpp src/ollamaclient.h src/ollamaclient.cpp resources.qrc)
 target_link_libraries(EclipseInfer PRIVATE Qt6::Widgets Qt6::Network)
 if(WIN32)
-  set_property(TARGET EclipseInfer APPEND PROPERTY SOURCES app.rc)
+  enable_language(RC)
+  # The resource compiler runs from the build directory, so give it the
+  # project root as an include/search path for assets referenced by app.rc.
+  target_include_directories(EclipseInfer PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
+  target_sources(EclipseInfer PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/app.rc")
   set_target_properties(EclipseInfer PROPERTIES WIN32_EXECUTABLE TRUE)
 endif()

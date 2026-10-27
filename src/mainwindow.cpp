@@ -1,6 +1,14 @@
 #include "mainwindow.h"
 #include "modelmanager.h"
+#include "updater.h"
 #include <QApplication>
+#include <QDesktopServices>
+#include <QDateTime>
+#include <QDir>
+#include <QFile>
+#include <QFileInfo>
+#include <QProcess>
+#include <QTimer>
 #include <QCheckBox>
 #include <QDialog>
 #include <QDialogButtonBox>
@@ -25,6 +33,7 @@
 #include <QCloseEvent>
 #include <QScrollArea>
 #include <QScrollBar>
+#include <QStandardPaths>
 #include <QSettings>
 #include <QSlider>
 #include <QSpinBox>
@@ -265,6 +274,64 @@ MainWindow::MainWindow(QWidget *parent):QMainWindow(parent) {
         QApplication::setQuitOnLastWindowClosed(true);
         qWarning("Eclipse Infer: Windows system tray is not available.");
     }
+    m_updateManager = new UpdateManager(this);
+    connect(m_updateManager, &UpdateManager::upToDate, this, [this](bool userInitiated) {
+        QSettings().setValue("updates/lastCheckUtc", QDateTime::currentDateTimeUtc().toString(Qt::ISODate));
+        if (userInitiated)
+            QMessageBox::information(this, "Eclipse Infer is up to date",
+                                     QString("You're running Eclipse Infer %1, the latest stable release.").arg(QApplication::applicationVersion()));
+    });
+    connect(m_updateManager, &UpdateManager::checkFailed, this, [this](const QString &message, bool userInitiated) {
+        if (userInitiated)
+            QMessageBox::warning(this, "Update check failed", message);
+    });
+    connect(m_updateManager, &UpdateManager::updateAvailable, this,
+            [this](const QString &version, const QString &notes, const QUrl &assetUrl, const QUrl &releaseUrl) {
+        const bool canInstall = !assetUrl.isEmpty();
+        QMessageBox dialog(this);
+        dialog.setWindowTitle("Eclipse Infer update available");
+        dialog.setIcon(QMessageBox::Information);
+        dialog.setText(QString("Eclipse Infer %1 is available (you have %2).")
+                       .arg(version, QApplication::applicationVersion()));
+        dialog.setInformativeText(notes.trimmed().isEmpty()
+            ? QStringLiteral("View the release notes before updating.")
+            : notes.left(1800));
+        QPushButton *updateButton = nullptr;
+#ifdef Q_OS_WIN
+        if (canInstall) updateButton = dialog.addButton("Download and install", QMessageBox::AcceptRole);
+#endif
+        auto *releaseButton = dialog.addButton("View GitHub release", QMessageBox::ActionRole);
+        dialog.addButton("Later", QMessageBox::RejectRole);
+        dialog.exec();
+        if (dialog.clickedButton() == releaseButton) {
+            QDesktopServices::openUrl(releaseUrl);
+        }
+#ifdef Q_OS_WIN
+        else if (updateButton && dialog.clickedButton() == updateButton) {
+            m_status->setText(QString("●  Downloading update %1…").arg(version));
+            m_updateManager->downloadUpdate(assetUrl, version);
+        }
+#endif
+    });
+    connect(m_updateManager, &UpdateManager::downloadProgress, this, [this](qint64 received, qint64 total) {
+        if (total > 0)
+            m_status->setText(QString("●  Downloading update: %1%").arg(qRound(100.0 * received / total)));
+        else
+            m_status->setText(QString("●  Downloading update… %1 KB").arg(received / 1024));
+    });
+    connect(m_updateManager, &UpdateManager::downloadFailed, this, [this](const QString &message) {
+        QMessageBox::warning(this, "Update download failed", message);
+        m_status->setText("●  Update download failed");
+    });
+    connect(m_updateManager, &UpdateManager::downloadReady, this,
+            [this](const QString &path, const QString &version) { installDownloadedUpdate(path, version); });
+    auto *helpMenu = menuBar()->addMenu("Help");
+    auto *updateAction = helpMenu->addAction("Check for Updates…");
+    connect(updateAction, &QAction::triggered, this, [this]() { checkForUpdates(true); });
+    const QDateTime lastUpdateCheck = QDateTime::fromString(settings.value("updates/lastCheckUtc").toString(), Qt::ISODate);
+    if (!lastUpdateCheck.isValid() || lastUpdateCheck.secsTo(QDateTime::currentDateTimeUtc()) >= 86400) {
+        QTimer::singleShot(2500, this, [this]() { checkForUpdates(false); });
+    }
     connect(QGuiApplication::styleHints(),&QStyleHints::colorSchemeChanged,this,[this](Qt::ColorScheme){
         QSettings s;
         if(s.value("theme","Eclipse Dark").toString()=="System")applyTheme("System");
@@ -367,6 +434,59 @@ void MainWindow::refreshModels(){
     m_providerClient.configure(activeProvider, providerEndpoint(activeProvider), storedApiKey(activeProvider));
 }
 void MainWindow::showModelManager(){ ModelManagerDialog dialog(this); dialog.exec(); refreshModels(); }
+void MainWindow::checkForUpdates(bool userInitiated) {
+    if (userInitiated) m_status->setText("●  Checking GitHub for updates…");
+    m_updateManager->checkForUpdates(userInitiated);
+}
+void MainWindow::installDownloadedUpdate(const QString &path, const QString &version) {
+#ifdef Q_OS_WIN
+    const QString executable = QCoreApplication::applicationFilePath();
+    const QFileInfo executableInfo(executable);
+    if (!executableInfo.dir().isWritable()) {
+        QMessageBox::information(this, "Update downloaded",
+            "The update was downloaded, but Eclipse Infer is installed in a protected folder. Open the GitHub release page and run the update with the required permissions.");
+        QDesktopServices::openUrl(QUrl("https://github.com/LinkZelda99-cpp/Eclipse-Infer/releases/latest"));
+        return;
+    }
+    const QString scriptPath = QDir(QStandardPaths::writableLocation(QStandardPaths::TempLocation))
+        .filePath("EclipseInfer-install-update.cmd");
+    const QString source = QDir::toNativeSeparators(path);
+    const QString target = QDir::toNativeSeparators(executable);
+    QFile script(scriptPath);
+    if (!script.open(QIODevice::WriteOnly | QIODevice::Truncate | QIODevice::Text)) {
+        QMessageBox::warning(this, "Update error", "Couldn't prepare the updater script.");
+        return;
+    }
+    const QString body = QStringLiteral(
+        "@echo off\r\n"
+        "timeout /t 3 /nobreak >nul\r\n"
+        "copy /Y \"%1\" \"%2\" >nul\r\n"
+        "if errorlevel 1 goto failed\r\n"
+        "start \"\" \"%2\"\r\n"
+        "del \"%1\"\r\n"
+        "del \"%~f0\"\r\n"
+        "exit /b 0\r\n"
+        ":failed\r\n"
+        "start \"\" \"https://github.com/LinkZelda99-cpp/Eclipse-Infer/releases/latest\"\r\n"
+        "pause\r\n"
+        "del \"%~f0\"\r\n").arg(source, target);
+    script.write(body.toUtf8());
+    script.close();
+    if (!QProcess::startDetached("cmd.exe", {"/c", "start", "", scriptPath})) {
+        QMessageBox::warning(this, "Update error", "Couldn't start the installer. You can download the release manually from GitHub.");
+        QDesktopServices::openUrl(QUrl("https://github.com/LinkZelda99-cpp/Eclipse-Infer/releases/latest"));
+        return;
+    }
+    QMessageBox::information(this, "Installing update",
+        QString("Eclipse Infer %1 has been downloaded. The app will close, replace its executable, and restart.").arg(version));
+    qApp->quit();
+#else
+    Q_UNUSED(path);
+    QMessageBox::information(this, "Update downloaded",
+        QString("Eclipse Infer %1 is available. Open the release page to install it for your platform.").arg(version));
+    QDesktopServices::openUrl(QUrl("https://github.com/LinkZelda99-cpp/Eclipse-Infer/releases/latest"));
+#endif
+}
 void MainWindow::addMessageCard(const QString &role,const QString &content,bool streaming,const QString &thinking) {
     auto *card=new QFrame(m_messageHost);card->setObjectName(role=="user"?"UserMessage":"AssistantMessage");
     card->setProperty("messageRole",role);

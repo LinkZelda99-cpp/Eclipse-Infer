@@ -1,10 +1,12 @@
 #include "mainwindow.h"
+#include "modelmanager.h"
 #include <QApplication>
 #include <QCheckBox>
 #include <QDialog>
 #include <QDialogButtonBox>
 #include <QFormLayout>
 #include <QComboBox>
+#include <QCompleter>
 #include <QFrame>
 #include <QGuiApplication>
 #include <QHBoxLayout>
@@ -162,7 +164,7 @@ MainWindow::MainWindow(QWidget *parent):QMainWindow(parent) {
         if(models.isEmpty()) m_models->addItem("No models installed");
         else {
             QSettings settings;
-            const QString preferred=settings.value("defaultModel",old).toString();
+            const QString preferred=settings.value(QString("defaultModel/%1").arg(m_provider->currentText()),old).toString();
             int i=m_models->findText(preferred);
             if(i<0)i=m_models->findText(old);
             if(i>=0)m_models->setCurrentIndex(i);
@@ -257,6 +259,7 @@ void MainWindow::buildUi() {
     auto *brand=new QLabel("ECLIPSE INFER",side); brand->setObjectName("Brand"); brandrow->addWidget(m_logoLabel);brandrow->addWidget(brand,1);sl->addLayout(brandrow);
     auto *tag=new QLabel("YOUR LOCAL AI WORKSPACE",side);tag->setObjectName("Eyebrow");sl->addWidget(tag);sl->addSpacing(10);
     auto *newButton=button("＋   New chat","Primary",side);sl->addWidget(newButton);connect(newButton,&QPushButton::clicked,this,&MainWindow::newChat);
+    auto *modelsButton=button("▦   Model Manager","Ghost",side);sl->addWidget(modelsButton);connect(modelsButton,&QPushButton::clicked,this,&MainWindow::showModelManager);
     auto *recent=new QLabel("RECENT",side);recent->setObjectName("Eyebrow");sl->addWidget(recent);
     auto *historyScroll=new QScrollArea(side);historyScroll->setWidgetResizable(true);historyScroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     auto *historyHost=new QWidget(historyScroll);m_historyLayout=new QVBoxLayout(historyHost);m_historyLayout->setContentsMargins(0,0,0,0);m_historyLayout->addStretch();historyScroll->setWidget(historyHost);sl->addWidget(historyScroll,1);
@@ -271,7 +274,10 @@ void MainWindow::buildUi() {
     connect(refresh,&QPushButton::clicked,this,&MainWindow::refreshModels);outer->addWidget(side);
     auto *main=new QWidget(root);auto *ml=new QVBoxLayout(main);ml->setContentsMargins(28,18,28,20);ml->setSpacing(13);
     auto *top=new QHBoxLayout;auto *plabel=new QLabel("PROVIDER",main);plabel->setObjectName("Eyebrow");top->addWidget(plabel); m_provider=new QComboBox(main);m_provider->addItems(ProviderClient::providers());m_provider->setMinimumWidth(150);top->addWidget(m_provider); auto *mlabel=new QLabel("MODEL",main);mlabel->setObjectName("Eyebrow");top->addWidget(mlabel);
-    m_models=new QComboBox(main);m_models->setMinimumWidth(220);m_models->setMaximumWidth(360);top->addWidget(m_models);
+    m_models=new QComboBox(main);m_models->setMinimumWidth(220);m_models->setMaximumWidth(360);m_models->setEditable(true);m_models->setInsertPolicy(QComboBox::NoInsert);m_models->setMaxVisibleItems(18);m_models->setPlaceholderText("Search or choose a model…");m_models->setToolTip("Search models by typing. The list is refreshed from the selected provider.");
+    if (m_models->completer()) { m_models->completer()->setCaseSensitivity(Qt::CaseInsensitive); m_models->completer()->setFilterMode(Qt::MatchContains); m_models->completer()->setCompletionMode(QCompleter::PopupCompletion); }
+    connect(m_models,&QComboBox::currentTextChanged,this,[this](const QString &model){ if(!model.trimmed().isEmpty() && model!="No models installed") QSettings().setValue(QString("defaultModel/%1").arg(m_provider->currentText()),model); });
+    top->addWidget(m_models);
     m_status=new QLabel("●  Connecting to Ollama…",main);m_status->setObjectName("Muted");top->addStretch();top->addWidget(m_status);ml->addLayout(top);
     m_chatTitle=new QLabel("New conversation",main);m_chatTitle->setStyleSheet("font-size:13px;font-weight:600;");ml->addWidget(m_chatTitle);
     m_scroll=new QScrollArea(main);m_scroll->setWidgetResizable(true);m_scroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
@@ -309,6 +315,7 @@ void MainWindow::closeEvent(QCloseEvent *event) {
     event->accept();
 }
 void MainWindow::refreshModels(){const QString provider=m_provider?m_provider->currentText():QSettings().value("provider","Ollama (local)").toString();m_status->setText(QString("●  Connecting to %1…").arg(provider));m_providerClient.configure(provider,providerEndpoint(provider),storedApiKey(provider));m_providerClient.refreshModels();}
+void MainWindow::showModelManager(){ ModelManagerDialog dialog(this); dialog.exec(); refreshModels(); }
 void MainWindow::addMessageCard(const QString &role,const QString &content,bool streaming,const QString &thinking) {
     auto *card=new QFrame(m_messageHost);card->setObjectName(role=="user"?"UserMessage":"AssistantMessage");
     card->setProperty("messageRole",role);

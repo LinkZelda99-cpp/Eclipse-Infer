@@ -6,7 +6,7 @@
 #include <QPointer>
 #include <QStringList>
 class QComboBox; class QLineEdit; class QPushButton; class QScrollArea; class QSlider;
-class QSpinBox; class QTextBrowser; class QVBoxLayout; class QLabel; class QCheckBox; class QSystemTrayIcon;
+class QSpinBox; class QTextBrowser; class QTextEdit; class QVBoxLayout; class QLabel; class QCheckBox; class QSystemTrayIcon;
 class MainWindow final : public QMainWindow {
     Q_OBJECT
 public:
@@ -30,7 +30,7 @@ private:
     QJsonArray apiMessages() const;
     ProviderClient m_providerClient;
     QSystemTrayIcon *m_trayIcon{};
-    QComboBox *m_provider{}; QComboBox *m_models{}; QLineEdit *m_input{}; QPushButton *m_send{}; QPushButton *m_codeModeButton{};
+    QComboBox *m_provider{}; QComboBox *m_models{}; QTextEdit *m_input{}; QPushButton *m_send{}; QPushButton *m_codeModeButton{};
     QLabel *m_status{}; QLabel *m_chatTitle{}; QLabel *m_logoLabel{}; QPointer<QLabel> m_welcomeLogo;
     QScrollArea *m_scroll{}; QWidget *m_messageHost{}; QVBoxLayout *m_messageLayout{};
     QSlider *m_temperature{}; QCheckBox *m_thinking{}; QSpinBox *m_contextLength{}; QPushButton *m_stop{};

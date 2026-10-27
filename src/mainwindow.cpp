@@ -350,7 +350,7 @@ void MainWindow::buildUi() {
     auto *sl=new QVBoxLayout(side); sl->setContentsMargins(17,22,17,18); sl->setSpacing(12);
     auto *brandrow=new QHBoxLayout; m_logoLabel=new QLabel(side); m_logoLabel->setFixedSize(32,32); m_logoLabel->setScaledContents(true);
     auto *brand=new QLabel("ECLIPSE INFER",side); brand->setObjectName("Brand"); brandrow->addWidget(m_logoLabel);brandrow->addWidget(brand,1);sl->addLayout(brandrow);
-    auto *tag=new QLabel("YOUR LOCAL AI WORKSPACE",side);tag->setObjectName("Eyebrow");sl->addWidget(tag);sl->addSpacing(10);
+    auto *tag=new QLabel("LOCAL + HOSTED AI",side);tag->setObjectName("Eyebrow");sl->addWidget(tag);sl->addSpacing(10);
     auto *newButton=button("＋   New chat","Primary",side);sl->addWidget(newButton);connect(newButton,&QPushButton::clicked,this,&MainWindow::newChat);
     auto *modelsButton=button("▦   Model Manager","Ghost",side);sl->addWidget(modelsButton);connect(modelsButton,&QPushButton::clicked,this,&MainWindow::showModelManager);
     auto *recent=new QLabel("RECENT",side);recent->setObjectName("Eyebrow");sl->addWidget(recent);

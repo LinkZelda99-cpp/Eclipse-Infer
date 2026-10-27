@@ -124,7 +124,7 @@ void ProviderClient::chat(const QString &model, const QJsonArray &messages, bool
             }
         }
         payload.insert("messages", nativeMessages);
-        payload.insert("max_tokens", qMin(qMax(contextLength, 1024), 8192));
+        payload.insert("max_tokens", 4096);
         if (!systemPrompt.isEmpty()) payload.insert("system", systemPrompt.trimmed());
         payload.insert("stream", true);
         payload.remove("temperature");
@@ -143,15 +143,17 @@ void ProviderClient::chat(const QString &model, const QJsonArray &messages, bool
         payload = QJsonObject{};
         payload.insert("contents", contents);
         QJsonObject generation; generation.insert("temperature", temperature);
-        generation.insert("maxOutputTokens", qMin(qMax(contextLength, 1024), 8192));
+        generation.insert("maxOutputTokens", 4096);
         payload.insert("generationConfig", generation);
         if (!systemPrompt.isEmpty()) {
             QJsonObject system; system.insert("parts", QJsonArray{QJsonObject{{"text", systemPrompt.trimmed()}}});
             payload.insert("systemInstruction", system);
         }
     } else {
-        payload.insert("max_tokens", contextLength > 0 ? qMin(contextLength, 8192) : 4096);
-        if (thinking) payload.insert("reasoning_effort", "medium");
+        if (m_provider == "OpenAI") payload.insert("max_completion_tokens", 4096);
+        else payload.insert("max_tokens", 4096);
+        if (thinking && (m_provider == "OpenAI" || m_provider == "OpenRouter"))
+            payload.insert("reasoning_effort", "medium");
     }
 
     QString chatPath = ollama ? "/api/chat" : anthropic ? "/messages" : gemini ? QString("/models/%1:streamGenerateContent?alt=sse").arg(model) : "/chat/completions";

@@ -48,17 +48,25 @@ Palette paletteFor(const QString &name) {
     return {"#0b0e14","#111722","#171f2c","#e7edf7","#8d9bb0","#263246","#58a6ff","#07111f"};
 }
 QPixmap eclipseLogoPixmap(int size, const QColor &color) {
-    QImage source(":/eclipse-logo.png");
-    if (source.isNull()) return QPixmap(size, size);
-    source = source.convertToFormat(QImage::Format_ARGB32);
-    for (int y = 0; y < source.height(); ++y) {
-        QRgb *line = reinterpret_cast<QRgb *>(source.scanLine(y));
-        for (int x = 0; x < source.width(); ++x) {
-            const int alpha = qAlpha(line[x]);
-            line[x] = qRgba(color.red(), color.green(), color.blue(), alpha);
-        }
+    // Start transparent so a missing resource can never appear as a solid square.
+    QPixmap transparent(size, size);
+    transparent.fill(Qt::transparent);
+
+    const QPixmap originalPixmap(QStringLiteral(":/eclipse-logo.png"));
+    if (originalPixmap.isNull()) {
+        qWarning("Eclipse Infer: failed to load :/eclipse-logo.png from Qt resources");
+        return transparent;
     }
-    return QPixmap::fromImage(source).scaled(size, size, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+
+    // Use SourceIn to color only the source image's opaque pixels, preserving its
+    // alpha mask and antialiased edges instead of replacing every pixel's RGB.
+    QPixmap tinted = originalPixmap;
+    QPainter painter(&tinted);
+    painter.setCompositionMode(QPainter::CompositionMode_SourceIn);
+    painter.fillRect(tinted.rect(), color);
+    painter.end();
+
+    return tinted.scaled(size, size, Qt::KeepAspectRatio, Qt::SmoothTransformation);
 }
 QString appStyleSheet(const QString &theme) {
     const Palette p=paletteFor(theme);

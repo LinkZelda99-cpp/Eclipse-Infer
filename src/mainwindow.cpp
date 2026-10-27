@@ -48,6 +48,7 @@ QString appStyleSheet(const QString &theme) {
       "QLabel#Brand{font-size:19px;font-weight:700;letter-spacing:1px;} QLabel#Eyebrow{color:%4;font-size:10px;font-weight:700;letter-spacing:1.5px;}"
       "QLabel#Muted{color:%4;font-size:11px;} QPushButton{background:%5;border:1px solid %6;border-radius:9px;padding:9px 12px;}"
       "QPushButton:hover{border-color:%7;} QPushButton#Primary{background:%7;color:%8;border:0;font-weight:700;padding:11px 16px;}"
+      "QPushButton#CodeMode{background:transparent;border:1px solid %6;color:%4;padding:8px 11px;} QPushButton#CodeMode:checked{background:%7;color:%8;border-color:%7;font-weight:700;}"
       "QPushButton#Ghost{background:transparent;border-color:transparent;text-align:left;} QPushButton#Ghost:hover{background:%5;border-color:%6;}"
       "QLineEdit,QComboBox,QSpinBox{background:%3;border:1px solid %6;border-radius:8px;padding:9px;}"
       "QLineEdit:focus,QComboBox:focus{border-color:%7;} QSlider::groove:horizontal{height:4px;background:%6;}"
@@ -170,7 +171,13 @@ void MainWindow::buildUi() {
     m_messageHost=new QWidget(m_scroll);m_messageLayout=new QVBoxLayout(m_messageHost);m_messageLayout->setContentsMargins(0,8,0,8);m_messageLayout->setSpacing(14);m_messageLayout->addStretch();m_scroll->setWidget(m_messageHost);ml->addWidget(m_scroll,1);
     auto *composer=new QFrame(main);composer->setObjectName("Composer");auto *cl=new QVBoxLayout(composer);cl->setContentsMargins(12,10,12,10);
     m_input=new QLineEdit(composer);m_input->setPlaceholderText("Message your local model…");m_input->setMinimumHeight(42);cl->addWidget(m_input);
-    auto *cb=new QHBoxLayout;cb->addStretch();
+    auto *cb=new QHBoxLayout;
+    m_codeModeButton=button("</>  Code Mode","CodeMode",composer);m_codeModeButton->setCheckable(true);
+    m_codeModeButton->setChecked(QSettings().value("codeMode",false).toBool());m_codeMode=m_codeModeButton->isChecked();
+    m_input->setPlaceholderText(m_codeMode?"Describe the code you want to build or debug…":"Message your local model…");
+    m_codeModeButton->setToolTip("Focus the model on programming, debugging, code review, and runnable examples.");
+    connect(m_codeModeButton,&QPushButton::toggled,this,[this](bool enabled){m_codeMode=enabled;QSettings().setValue("codeMode",enabled);m_input->setPlaceholderText(enabled?"Describe the code you want to build or debug…":"Message your local model…");});
+    cb->addWidget(m_codeModeButton);cb->addStretch();
     m_send=button("Send  ↗","Primary",composer);cb->addWidget(m_send);cl->addLayout(cb);ml->addWidget(composer);
     connect(m_send,&QPushButton::clicked,this,&MainWindow::sendMessage);connect(m_input,&QLineEdit::returnPressed,this,&MainWindow::sendMessage);
     outer->addWidget(main,1);setCentralWidget(root);
@@ -238,7 +245,21 @@ void MainWindow::showWelcome() {
     auto *hint=new QLabel("Choose a model above and ask it anything.",w);hint->setAlignment(Qt::AlignCenter);hint->setStyleSheet("color:#8d9bb0;font-size:11px;");l->addWidget(hint);m_messageLayout->insertWidget(0,w);
 }
 QJsonArray MainWindow::apiMessages() const {
-    QJsonArray a;for(const auto &m:m_messages){QJsonObject o;o.insert("role",m.role);o.insert("content",m.content);a.append(o);}return a;
+    QJsonArray a;
+    if(m_codeMode){
+        QJsonObject system;
+        system.insert("role","system");
+        system.insert("content",QStringLiteral(
+            "You are in Code Mode, a focused software engineering workspace. Help the user build, understand, debug, refactor, and review software. "
+            "Prefer correct, maintainable, idiomatic code and respect the language, framework, versions, and conventions the user specifies. "
+            "When changing existing code, preserve unrelated behavior and explain important changes. For debugging, identify the likely root cause, state assumptions, and give a concrete fix. "
+            "Use fenced code blocks with an accurate language tag for code. Keep explanations concise but useful; put the solution first when the request is clear. "
+            "Provide complete, runnable examples when appropriate, but do not invent APIs, dependencies, test results, or facts about files you have not seen. "
+            "If essential requirements are missing, ask a focused clarifying question instead of guessing. Mention relevant edge cases and security concerns when they matter."));
+        a.append(system);
+    }
+    for(const auto &m:m_messages){QJsonObject o;o.insert("role",m.role);o.insert("content",m.content);a.append(o);}
+    return a;
 }
 void MainWindow::saveCurrentConversation() {
     if(m_conversationId.isEmpty()||m_messages.isEmpty())return;

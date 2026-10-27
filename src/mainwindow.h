@@ -26,6 +26,7 @@ private:
     void saveCurrentConversation();
     void openConversation(const QString &id);
     void showSettings();
+    void showModelManager();
     QJsonArray apiMessages() const;
     ProviderClient m_providerClient;
     QSystemTrayIcon *m_trayIcon{};

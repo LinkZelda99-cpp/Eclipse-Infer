@@ -25,4 +25,5 @@ private:
     QNetworkAccessManager *m_network{};
     bool m_userInitiated{false};
     QString m_downloadVersion;
+    bool m_downloadIsZip{false};
 };

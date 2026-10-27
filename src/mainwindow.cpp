@@ -360,10 +360,12 @@ void MainWindow::buildUi() {
     auto *tempRow=new QHBoxLayout;tempRow->addWidget(new QLabel("Temperature",side));tempRow->addStretch();auto *tempVal=new QLabel("0.7",side);tempVal->setObjectName("Muted");tempRow->addWidget(tempVal);sl->addLayout(tempRow);
     m_temperature=new QSlider(Qt::Horizontal,side);m_temperature->setRange(0,20);m_temperature->setValue(7);sl->addWidget(m_temperature);
     connect(m_temperature,&QSlider::valueChanged,this,[tempVal](int v){tempVal->setText(QString::number(v/10.0,'f',1));});
-    m_thinking=new QCheckBox("Enable model thinking (if supported)",side);m_thinking->setChecked(false);m_thinking->setToolTip("This option is provider/model dependent. Unsupported providers may ignore it.");sl->addWidget(m_thinking);
+    m_thinking=new QCheckBox("Think",side);m_thinking->setChecked(false);m_thinking->setToolTip("Enable model thinking when the selected provider and model support it.");m_thinking->setCursor(Qt::PointingHandCursor);
     auto *contextRow=new QHBoxLayout;contextRow->addWidget(new QLabel("Context window",side));contextRow->addStretch();m_contextLength=new QSpinBox(side);m_contextLength->setRange(2048,131072);m_contextLength->setSingleStep(2048);m_contextLength->setValue(QSettings().value("contextLength",8192).toInt());m_contextLength->setSuffix(" tokens");m_contextLength->setToolTip("Requested context length. Local runtimes may honor it; hosted providers may ignore it or use their own limits.");m_contextLength->setFixedWidth(125);contextRow->addWidget(m_contextLength);sl->addLayout(contextRow);connect(m_contextLength,qOverload<int>(&QSpinBox::valueChanged),this,[](int v){QSettings().setValue("contextLength",v);});
     auto *bottom=new QHBoxLayout;auto *refresh=button("↻  Refresh","Ghost",side);bottom->addWidget(refresh);sl->addLayout(bottom);
-    auto *settingsButton=button("⚙  Settings","Ghost",side);sl->addWidget(settingsButton);
+    auto *bottomActions=new QHBoxLayout;bottomActions->setSpacing(6);
+    auto *settingsButton=button("⚙  Settings","Ghost",side);bottomActions->addWidget(settingsButton,1);
+    bottomActions->addWidget(m_thinking);sl->addLayout(bottomActions);
     connect(settingsButton,&QPushButton::clicked,this,&MainWindow::showSettings);
     connect(refresh,&QPushButton::clicked,this,&MainWindow::refreshModels);outer->addWidget(side);
     auto *main=new QWidget(root);auto *ml=new QVBoxLayout(main);ml->setContentsMargins(28,18,28,20);ml->setSpacing(13);

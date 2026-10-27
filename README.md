@@ -10,9 +10,12 @@ A C++20 and Qt 6 desktop client for Ollama, with a sleek Eclipse-inspired interf
 - Markdown message rendering
 - Thinking toggle for compatible models
 - Temperature and context-length controls
-- Recent conversation titles stored in local application settings
+- Full conversation transcripts saved locally and reopened from the sidebar
+- Settings dialog for appearance, default model, and saved-history limits
+- Persistent temperature, context-length, and thinking preferences
+- Up to 30 recent conversations by default, with a setting to clear saved history
 
-This is an early MVP. Full transcript persistence/reopening, stop-generation UI, model installation controls, syntax highlighting, and automated tests remain future work.
+This is an early MVP. Stop-generation UI, model installation controls, syntax highlighting, conversation search/rename, and automated tests remain future work.
 
 ## Requirements
 
@@ -49,7 +52,7 @@ The app sends prompts to the local Ollama server at 127.0.0.1:11434. This MVP in
 
 ## Roadmap
 
-- Persist and reopen complete conversation transcripts
+- Conversation search and rename
 - Stop-generation button and robust cancellation
 - Rename, delete, and search conversations
 - Copy message/code and regenerate responses

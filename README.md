@@ -7,15 +7,13 @@ A C++20 / Qt 6 desktop AI client for local models and hosted model APIs.
 - Native Qt desktop interface with theme selection, saved chat history, multiline prompts (Ctrl+Enter to send), Code Mode, adjustable temperature and context window, model-thinking display where supported, and a Stop control to cancel active generation
 - System-tray integration on Windows
 - Streaming chat responses
-- One unified model selector; provider routing happens automatically when a model is selected
 - Configurable API endpoints and credentials in Settings (provider selection is only needed for initial setup)
 - Local Ollama model discovery and chat
 - OpenAI-compatible API support for OpenAI, OpenRouter, Groq, Together AI, DeepSeek, Mistral, LM Studio, llama.cpp server, vLLM, LocalAI, and compatible custom endpoints
 - Native streaming adapters for Anthropic Messages and Google Gemini generate-content APIs
-- Unified model picker: choose a discovered model across configured providers without switching providers in the main UI; per-provider endpoints, credentials, remembered selections, and cached model lists
-- Automatic discovery for Ollama and common local OpenAI-compatible runtimes (LM Studio, llama.cpp, vLLM, and LocalAI); hosted model lists are refreshed when credentials are configured
+- Unified model picker with automatic provider routing, per-provider endpoints and credentials, remembered selections, and cached model lists
+- Automatic discovery for Ollama and common local OpenAI-compatible runtimes; hosted model lists refresh when credentials are configured
 - Dedicated Ollama Model Manager: browse installed models, download from the Ollama library with progress, rename (copy then remove), and delete with confirmation
-- Model discovery for supported provider APIs
 - API keys masked in the settings UI; on Windows, keys are stored using Windows Credential Manager
 - Endpoint and provider preferences stored locally
 - Conversation history stored in the app's local settings

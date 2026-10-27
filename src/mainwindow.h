@@ -13,7 +13,7 @@ public:
 private:
     struct Message { QString role; QString content; QString thinking; };
     void buildUi();
-    void applyTheme(bool dark);
+    void applyTheme(const QString &theme);
     void refreshModels();
     void sendMessage();
     void addMessageCard(const QString &role, const QString &content, bool streaming = false, const QString &thinking = QString{});
@@ -26,7 +26,7 @@ private:
     QJsonArray apiMessages() const;
     OllamaClient m_ollama;
     QComboBox *m_models{}; QLineEdit *m_input{}; QPushButton *m_send{};
-    QPushButton *m_theme{}; QLabel *m_status{}; QLabel *m_chatTitle{};
+    QLabel *m_status{}; QLabel *m_chatTitle{};
     QScrollArea *m_scroll{}; QWidget *m_messageHost{}; QVBoxLayout *m_messageLayout{};
     QSlider *m_temperature{}; QSpinBox *m_context{}; QCheckBox *m_thinking{};
     QVBoxLayout *m_historyLayout{}; QPointer<QTextBrowser> m_streamView; QPointer<QTextBrowser> m_streamThinkingView; QPointer<QPushButton> m_streamThinkingLabel;

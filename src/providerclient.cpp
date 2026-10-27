@@ -246,7 +246,8 @@ void ProviderClient::processLine(const QByteArray &line)
             emit errorOccurred(error.value("message").toString("Provider returned an error."));
             return;
         }
-        const QJsonObject choice = root.value("choices").toArray().value(0).toObject();
+        const QJsonArray choices = root.value("choices").toArray();
+        const QJsonObject choice = choices.isEmpty() ? QJsonObject{} : choices.at(0).toObject();
         const QJsonObject delta = choice.value("delta").toObject();
         const QString reasoning = delta.value("reasoning_content").toString();
         const QString content = delta.value("content").toString();

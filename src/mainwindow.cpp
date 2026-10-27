@@ -71,13 +71,17 @@ MainWindow::MainWindow(QWidget *parent):QMainWindow(parent) {
         m_status->setStyleSheet(QString("color:%1;font-size:11px;").arg(ok?"#43c78b":"#e58c80"));
     });
     connect(&m_ollama,&OllamaClient::tokenReceived,this,[this](const QString &part){
-        if(m_messages.isEmpty()||m_messages.last().role!="assistant")m_messages.append(Message{"assistant", QString{}});
+        if(m_messages.isEmpty()||m_messages.last().role!="assistant")m_messages.append(Message{"assistant", QString{}, QString{}});
         m_messages.last().content+=part;
         if(m_streamView)m_streamView->setMarkdown(m_messages.last().content);
         m_scroll->verticalScrollBar()->setValue(m_scroll->verticalScrollBar()->maximum());
     });
-    connect(&m_ollama,&OllamaClient::thinkingReceived,this,[this](const QString &){
-        if(m_streamView && m_thinking->isChecked())m_streamView->setToolTip("This model is producing a thinking trace.");
+    connect(&m_ollama,&OllamaClient::thinkingReceived,this,[this](const QString &part){
+        if(m_messages.isEmpty()||m_messages.last().role!="assistant")m_messages.append(Message{"assistant", QString{}, QString{}});
+        m_messages.last().thinking+=part;
+        if(m_streamThinkingView){m_streamThinkingView->setVisible(true);m_streamThinkingView->setMarkdown(m_messages.last().thinking);}
+        if(m_streamView && m_messages.last().content.isEmpty())m_streamView->setMarkdown("*Thinking…*");
+        m_scroll->verticalScrollBar()->setValue(m_scroll->verticalScrollBar()->maximum());
     });
     connect(&m_ollama,&OllamaClient::errorOccurred,this,[this](const QString &msg){
         m_status->setText(QString("●  %1").arg(msg)); m_status->setStyleSheet("color:#e58c80;font-size:11px;");
@@ -145,14 +149,22 @@ void MainWindow::buildUi() {
 }
 void MainWindow::applyTheme(bool dark){m_dark=dark;qApp->setStyleSheet(appStyleSheet(dark));m_theme->setText(dark?"☼  Light mode":"◐  Dark mode");}
 void MainWindow::refreshModels(){m_status->setText("●  Checking Ollama…");m_ollama.refreshModels();}
-void MainWindow::addMessageCard(const QString &role,const QString &content,bool streaming) {
+void MainWindow::addMessageCard(const QString &role,const QString &content,bool streaming,const QString &thinking) {
     auto *card=new QFrame(m_messageHost);card->setObjectName(role=="user"?"UserMessage":"AssistantMessage");
     card->setProperty("messageRole",role);
     auto *layout=new QVBoxLayout(card);layout->setContentsMargins(18,14,18,14);layout->setSpacing(9);
     auto *label=new QLabel((role=="user"?"YOU":"ECLIPSE INFER"),card);label->setStyleSheet(QString("font-size:10px;font-weight:800;letter-spacing:1px;color:%1;").arg(role=="user"?"#58a6ff":"#8d9bb0"));layout->addWidget(label);
+    QPointer<QTextBrowser> thinkingView;
+    if(role=="assistant"){
+        auto *thinkingLabel=new QLabel("MODEL THINKING",card);thinkingLabel->setStyleSheet("font-size:10px;font-weight:800;letter-spacing:1px;color:#58a6ff;");
+        thinkingLabel->setVisible(!thinking.isEmpty());layout->addWidget(thinkingLabel);
+        auto *tv=new QTextBrowser(card);tv->setReadOnly(true);tv->setOpenExternalLinks(true);tv->setMarkdown(thinking);tv->setMinimumHeight(24);tv->setMaximumHeight(180);tv->setVisible(!thinking.isEmpty());tv->setFrameShape(QFrame::NoFrame);
+        tv->setStyleSheet("QTextBrowser{background:transparent;border:0;padding:0;color:#8d9bb0;}");layout->addWidget(tv);thinkingView=tv;
+    }
     auto *view=new QTextBrowser(card);view->setReadOnly(true);view->setOpenExternalLinks(true);view->setMarkdown(content);view->setMinimumHeight(28);view->setFrameShape(QFrame::NoFrame);
     view->setStyleSheet("QTextBrowser{background:transparent;border:0;padding:0;}");layout->addWidget(view);
-    m_messageLayout->insertWidget(m_messageLayout->count()-1,card);if(streaming)m_streamView=view;
+    m_messageLayout->insertWidget(m_messageLayout->count()-1,card);
+    if(streaming){m_streamView=view;m_streamThinkingView=thinkingView;}
 }
 void MainWindow::sendMessage() {
     if(m_busy)return;const QString prompt=m_input->text().trimmed();if(prompt.isEmpty())return;
@@ -186,12 +198,12 @@ void MainWindow::showWelcome() {
     auto *hint=new QLabel("Choose a model above and ask it anything.",w);hint->setAlignment(Qt::AlignCenter);hint->setStyleSheet("color:#8d9bb0;font-size:11px;");l->addWidget(hint);m_messageLayout->insertWidget(0,w);
 }
 QJsonArray MainWindow::apiMessages() const {
-    QJsonArray a;for(const auto &m:m_messages){QJsonObject o;o.insert("role",m.role);o.insert("content",m.content);a.append(o);}return a;
+    QJsonArray a;for(const auto &m:m_messages){QJsonObject o;o.insert("role",m.role);o.insert("content",m.content);if(!m.thinking.isEmpty())o.insert("thinking",m.thinking);a.append(o);}return a;
 }
 void MainWindow::saveCurrentConversation() {
     if(m_conversationId.isEmpty()||m_messages.isEmpty())return;
     QJsonArray messages;
-    for(const auto &message:m_messages){QJsonObject item;item.insert("role",message.role);item.insert("content",message.content);messages.append(item);}
+    for(const auto &message:m_messages){QJsonObject item;item.insert("role",message.role);item.insert("content",message.content);if(!message.thinking.isEmpty())item.insert("thinking",message.thinking);messages.append(item);}
     QSettings settings;
     settings.setValue("conversations/"+m_conversationId+"/title",m_title.isEmpty()?"New conversation":m_title);
     settings.setValue("conversations/"+m_conversationId+"/messages",QString::fromUtf8(QJsonDocument(messages).toJson(QJsonDocument::Compact)));
@@ -219,9 +231,9 @@ void MainWindow::openConversation(const QString &id) {
     const QString model=settings.value("conversations/"+id+"/model").toString();int modelIndex=m_models->findText(model);if(modelIndex>=0)m_models->setCurrentIndex(modelIndex);
     while(m_messageLayout->count()>1){auto *item=m_messageLayout->takeAt(0);if(item->widget())item->widget()->deleteLater();delete item;}
     for(const auto &value:document.array()){
-        const auto object=value.toObject();const QString role=object.value("role").toString();const QString content=object.value("content").toString();
+        const auto object=value.toObject();const QString role=object.value("role").toString();const QString content=object.value("content").toString();const QString thinking=object.value("thinking").toString();
         if(role!="user"&&role!="assistant")continue;
-        m_messages.append(Message{role,content});addMessageCard(role,content);
+        m_messages.append(Message{role,content,thinking});addMessageCard(role,content,false,thinking);
     }
     m_chatTitle->setText(m_title);m_scroll->verticalScrollBar()->setValue(m_scroll->verticalScrollBar()->maximum());
 }

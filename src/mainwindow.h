@@ -3,6 +3,7 @@
 #include <QJsonArray>
 #include <QMainWindow>
 #include <QPointer>
+#include <QStringList>
 class QComboBox; class QLineEdit; class QPushButton; class QScrollArea; class QSlider;
 class QSpinBox; class QTextBrowser; class QVBoxLayout; class QLabel; class QCheckBox;
 class MainWindow final : public QMainWindow {
@@ -19,6 +20,9 @@ private:
     void newChat();
     void rebuildHistory();
     void showWelcome();
+    void saveCurrentConversation();
+    void openConversation(const QString &id);
+    void showSettings();
     QJsonArray apiMessages() const;
     OllamaClient m_ollama;
     QComboBox *m_models{}; QLineEdit *m_input{}; QPushButton *m_send{};
@@ -28,5 +32,7 @@ private:
     QVBoxLayout *m_historyLayout{}; QPointer<QTextBrowser> m_streamView;
     QList<Message> m_messages;
     QString m_title;
+    QString m_conversationId;
+    QStringList m_historyIds;
     bool m_dark{true}; bool m_busy{false};
 };

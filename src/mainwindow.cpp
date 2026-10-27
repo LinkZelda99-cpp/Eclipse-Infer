@@ -156,10 +156,17 @@ void MainWindow::addMessageCard(const QString &role,const QString &content,bool 
     auto *label=new QLabel((role=="user"?"YOU":"ECLIPSE INFER"),card);label->setStyleSheet(QString("font-size:10px;font-weight:800;letter-spacing:1px;color:%1;").arg(role=="user"?"#58a6ff":"#8d9bb0"));layout->addWidget(label);
     QPointer<QTextBrowser> thinkingView;
     if(role=="assistant"){
-        auto *thinkingLabel=new QLabel("MODEL THINKING",card);thinkingLabel->setStyleSheet("font-size:10px;font-weight:800;letter-spacing:1px;color:#58a6ff;");
-        thinkingLabel->setVisible(!thinking.isEmpty());layout->addWidget(thinkingLabel);if(streaming)m_streamThinkingLabel=thinkingLabel;
-        auto *tv=new QTextBrowser(card);tv->setReadOnly(true);tv->setOpenExternalLinks(true);tv->setMarkdown(thinking);tv->setMinimumHeight(24);tv->setMaximumHeight(180);tv->setVisible(!thinking.isEmpty());tv->setFrameShape(QFrame::NoFrame);
+        auto *thinkingToggle=button(QString("%1  Model thinking").arg(thinking.isEmpty()?"▸":"▾"),"Ghost",card);
+        thinkingToggle->setStyleSheet("QPushButton{background:transparent;border:0;padding:3px 0;text-align:left;color:#58a6ff;font-size:11px;font-weight:700;} QPushButton:hover{color:#8bc4ff;}");
+        layout->addWidget(thinkingToggle);
+        auto *tv=new QTextBrowser(card);tv->setReadOnly(true);tv->setOpenExternalLinks(true);tv->setMarkdown(thinking);tv->setMinimumHeight(24);tv->setMaximumHeight(180);tv->setVisible(false);tv->setFrameShape(QFrame::NoFrame);
         tv->setStyleSheet("QTextBrowser{background:transparent;border:0;padding:0;color:#8d9bb0;}");layout->addWidget(tv);thinkingView=tv;
+        connect(thinkingToggle,&QPushButton::clicked,card,[thinkingToggle,tv](){
+            const bool expand=!tv->isVisible();
+            tv->setVisible(expand);
+            thinkingToggle->setText(QString("%1  Model thinking").arg(expand?"▾":"▸"));
+        });
+        if(streaming){m_streamThinkingLabel=thinkingToggle;}
     }
     auto *view=new QTextBrowser(card);view->setReadOnly(true);view->setOpenExternalLinks(true);view->setMarkdown(content);view->setMinimumHeight(28);view->setFrameShape(QFrame::NoFrame);
     view->setStyleSheet("QTextBrowser{background:transparent;border:0;padding:0;}");layout->addWidget(view);

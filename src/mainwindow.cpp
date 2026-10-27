@@ -93,12 +93,11 @@ MainWindow::MainWindow(QWidget *parent):QMainWindow(parent) {
     const QString theme=settings.value("theme","system").toString();
     if(theme=="dark")applyTheme(true);
     else if(theme=="light")applyTheme(false);
-    else {
-        applyTheme(QGuiApplication::styleHints()->colorScheme()!=Qt::ColorScheme::Light);
-        connect(QGuiApplication::styleHints(),&QStyleHints::colorSchemeChanged,this,[this](Qt::ColorScheme c){
-            QSettings s; if(s.value("theme","system").toString()=="system")applyTheme(c!=Qt::ColorScheme::Light);
-        });
-    }
+    else applyTheme(QGuiApplication::styleHints()->colorScheme()!=Qt::ColorScheme::Light);
+    connect(QGuiApplication::styleHints(),&QStyleHints::colorSchemeChanged,this,[this](Qt::ColorScheme scheme){
+        QSettings s;
+        if(s.value("theme","system").toString()=="system")applyTheme(scheme!=Qt::ColorScheme::Light);
+    });
     QSettings settings;
     m_temperature->setValue(qRound(settings.value("temperature",0.7).toDouble()*10.0));
     m_context->setValue(settings.value("contextLength",8192).toInt());
@@ -176,7 +175,7 @@ void MainWindow::newChat() {
     if(m_busy)m_ollama.cancel();
     saveCurrentConversation();
     m_messages.clear();m_title.clear();m_conversationId.clear();m_streamView=nullptr;m_busy=false;m_send->setEnabled(true);m_send->setText("Send  ↗");m_input->setEnabled(true);m_chatTitle->setText("New conversation");
-    while(m_messageLayout->count()>1){auto *item=m_messageLayout->takeAt(0);if(item->widget())item->widget()->deleteLater();delete item;}showWelcome();
+    while(m_messageLayout->count()>1){auto *item=m_messageLayout->takeAt(0);if(item->widget())item->widget()->deleteLater();delete item;}showWelcome();rebuildHistory();
 }
 void MainWindow::showWelcome() {
     if(!m_messages.isEmpty()||m_messageLayout->count()>1)return;

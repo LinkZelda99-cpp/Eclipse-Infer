@@ -28,7 +28,7 @@ private:
     QComboBox *m_models{}; QLineEdit *m_input{}; QPushButton *m_send{};
     QLabel *m_status{}; QLabel *m_chatTitle{};
     QScrollArea *m_scroll{}; QWidget *m_messageHost{}; QVBoxLayout *m_messageLayout{};
-    QSlider *m_temperature{}; QSpinBox *m_context{}; QCheckBox *m_thinking{};
+    QSlider *m_temperature{}; QCheckBox *m_thinking{};
     QVBoxLayout *m_historyLayout{}; QPointer<QTextBrowser> m_streamView; QPointer<QTextBrowser> m_streamThinkingView; QPointer<QPushButton> m_streamThinkingLabel;
     QList<Message> m_messages;
     QString m_title;

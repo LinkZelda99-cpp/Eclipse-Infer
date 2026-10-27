@@ -11,7 +11,7 @@ A C++20 / Qt 6 desktop AI client for local models and hosted model APIs.
 - Local Ollama model discovery and chat
 - OpenAI-compatible API support for OpenAI, OpenRouter, Groq, Together AI, DeepSeek, Mistral, LM Studio, llama.cpp server, vLLM, LocalAI, and compatible custom endpoints
 - Native streaming adapters for Anthropic Messages and Google Gemini generate-content APIs
-- Instant provider switching with per-provider endpoints, credentials, remembered model selections, and cached model lists that appear immediately while refreshing in the background
+- Unified model picker: select a discovered model across providers and Eclipse Infer automatically switches to its provider; per-provider endpoints, credentials, remembered selections, and cached model lists
 - Dedicated Ollama Model Manager: browse installed models, download from the Ollama library with progress, rename (copy then remove), and delete with confirmation
 - Model discovery for supported provider APIs
 - API keys masked in the settings UI; on Windows, keys are stored using Windows Credential Manager

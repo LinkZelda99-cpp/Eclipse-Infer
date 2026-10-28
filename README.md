@@ -1,4 +1,4 @@
-# Eclipse Infer
+# Eclipse Orbit
 
 A C++20 / Qt 6 desktop AI client for local models and hosted model APIs.
 
@@ -22,9 +22,9 @@ Provider APIs differ in their supported parameters and model capabilities. Some 
 
 ## Provider setup
 
-1. For local Ollama use, install/run Ollama; Eclipse Infer detects installed models automatically.
+1. For local Ollama use, install/run Ollama; Eclipse Orbit detects installed models automatically.
 2. To set up a hosted provider or another local runtime, open **Settings** once, select that provider, confirm its endpoint, and enter its API key if required.
-3. Return to the chat and select the model directly. Eclipse Infer routes each request to that model's provider automatically; you do not need to switch providers in the main window.
+3. Return to the chat and select the model directly. Eclipse Orbit routes each request to that model's provider automatically; you do not need to switch providers in the main window.
 4. Use **Model Manager** to see installed Ollama models, pick a popular model or type a model name, then choose **Add / Download model**. You can also rename or delete local Ollama models there.
 
 Default endpoints are provided for each preset. The **Custom OpenAI-compatible** option can connect to other servers that implement the models-list and streaming chat-completions endpoints.
@@ -48,13 +48,13 @@ Default endpoints are provided for each preset. The **Custom OpenAI-compatible**
 | LocalAI | OpenAI-compatible | http://127.0.0.1:8080/v1 |
 | Custom OpenAI-compatible | OpenAI-compatible | Configurable |
 
-## Updating Eclipse Infer
+## Updating Eclipse Orbit
 
 Use **Help → Check for Updates** to compare the installed version with the newest stable GitHub Release. The app also checks automatically at most once per day. On Windows, choosing **Download and install** downloads the HTTPS release package, closes the app, replaces its portable application files, and restarts it. Other platforms can open the release page to install manually.
 
-To publish an update, create and publish a GitHub Release with a semantic version tag such as `v0.2.0`. The `.github/workflows/release-windows.yml` workflow builds a portable Windows package and attaches `EclipseInfer-Windows-x64.zip` to that release. The release tag becomes the version embedded in that build. Users need a published stable release and its generated asset for in-app Windows installation to work.
+To publish an update, create and publish a GitHub Release with a semantic version tag such as `v0.2.0`. The `.github/workflows/release-windows.yml` workflow builds a portable Windows package and attaches `EclipseOrbit-Windows-x64.zip` to that release. The release tag becomes the version embedded in that build. Users need a published stable release and its generated asset for in-app Windows installation to work.
 
-Updates replace the app files in the folder where Eclipse Infer is running. If that folder requires administrator permissions, install the release manually with the appropriate permissions.
+Updates replace the app files in the folder where Eclipse Orbit is running. If that folder requires administrator permissions, install the release manually with the appropriate permissions.
 
 ## Build requirements
 
@@ -69,7 +69,7 @@ Run from the repository root in a Visual Studio Developer PowerShell. Adjust the
 ~~~powershell
 cmake -S . -B build -DCMAKE_PREFIX_PATH="C:/Qt/6.12.0/msvc2022_64"
 cmake --build build --config Release
-.\build\EclipseInfer.exe
+.\build\EclipseOrbit.exe
 ~~~
 
 Close the running app before rebuilding so Windows can replace the executable.
@@ -81,14 +81,14 @@ Install Qt 6 Widgets/Network development packages, CMake, and a C++20 compiler:
 ~~~sh
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build -j
-./build/EclipseInfer
+./build/EclipseOrbit
 ~~~
 
 ## Architecture
 
 Qt Widgets UI -> provider client -> provider-specific HTTP API.
 
-Ollama uses its native tags and chat endpoints. OpenAI-compatible providers use a models endpoint and streaming chat completions. Anthropic and Gemini have dedicated request/stream adapters. Eclipse Infer is a client, not an inference engine: model weights and inference are supplied by the configured local server or hosted provider.
+Ollama uses its native tags and chat endpoints. OpenAI-compatible providers use a models endpoint and streaming chat completions. Anthropic and Gemini have dedicated request/stream adapters. Eclipse Orbit is a client, not an inference engine: model weights and inference are supplied by the configured local server or hosted provider.
 
 ## Privacy and credentials
 

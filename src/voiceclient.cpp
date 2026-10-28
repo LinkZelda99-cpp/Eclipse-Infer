@@ -40,11 +40,8 @@ void VoiceClient::startRecording()
     m_format.setChannelCount(1);
     m_format.setSampleFormat(QAudioFormat::Int16);
     if (!device.isFormatSupported(m_format)) {
-        m_format = device.preferredFormat();
-        if (m_format.sampleFormat() == QAudioFormat::Unknown) {
-            emit errorOccurred(QStringLiteral("The microphone does not expose a supported audio format."));
-            return;
-        }
+        emit errorOccurred(QStringLiteral("This microphone does not support 16 kHz mono PCM capture, which voice transcription currently requires."));
+        return;
     }
     m_pcm.clear();
     m_audioSource = new QAudioSource(device, m_format, this);

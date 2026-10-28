@@ -7,6 +7,8 @@
 #include <QJsonObject>
 #include <QNetworkRequest>
 #include <QUrl>
+#include <QProcess>
+#include <QSysInfo>
 #include <QtEndian>
 #include <cstring>
 
@@ -14,6 +16,7 @@ VoiceClient::VoiceClient(QObject *parent)
     : QObject(parent), m_player(), m_audioOutput(), m_playbackBuffer()
 {
     m_player.setAudioOutput(&m_audioOutput);
+    connect(&m_localSpeechProcess, &QProcess::finished, this, [this](int, QProcess::ExitStatus) { emit speakingChanged(false); });
     connect(&m_player, &QMediaPlayer::playbackStateChanged, this, [this](QMediaPlayer::PlaybackState state) {
         if (state != QMediaPlayer::PlayingState) emit speakingChanged(false);
     });
@@ -41,6 +44,38 @@ void VoiceClient::fetchVoices(const QString &provider, const QString &apiKey)
         m_voiceListRequest->abort();
         m_voiceListRequest->deleteLater();
         m_voiceListRequest = nullptr;
+    }
+
+    if (provider == QStringLiteral("Windows (local)")) {
+#ifdef Q_OS_WIN
+        auto *process = new QProcess(this);
+        const QString script = QStringLiteral("$ErrorActionPreference='Stop'; Add-Type -AssemblyName System.Speech; $s=New-Object System.Speech.Synthesis.SpeechSynthesizer; $items=@($s.GetInstalledVoices() | ForEach-Object { [PSCustomObject]@{ Name=$_.VoiceInfo.Name; Id=$_.VoiceInfo.Name } }); ConvertTo-Json -InputObject $items -Compress");
+        connect(process, qOverload<int, QProcess::ExitStatus>(&QProcess::finished), this, [this, process](int code, QProcess::ExitStatus status) {
+            const QByteArray output = process->readAllStandardOutput();
+            const QByteArray error = process->readAllStandardError();
+            if (status != QProcess::NormalExit || code != 0) {
+                emit voiceListError(QStringLiteral("Could not enumerate Windows speech voices: %1").arg(QString::fromLocal8Bit(error).trimmed()));
+            } else {
+                QJsonParseError parseError;
+                const QJsonDocument document = QJsonDocument::fromJson(output, &parseError);
+                QStringList names, ids;
+                const QJsonArray voices = document.isArray() ? document.array() : QJsonArray{document.object()};
+                for (const QJsonValue &value : voices) {
+                    const QJsonObject item = value.toObject();
+                    const QString name = item.value(QStringLiteral("Name")).toString().trimmed();
+                    const QString id = item.value(QStringLiteral("Id")).toString().trimmed();
+                    if (!name.isEmpty() && !id.isEmpty()) { names.append(name); ids.append(id); }
+                }
+                if (names.isEmpty()) emit voiceListError(QStringLiteral("No installed Windows speech voices were found. Add a speech voice in Windows Settings."));
+                else emit voiceListReady(names, ids);
+            }
+            process->deleteLater();
+        });
+        process->start(QStringLiteral("powershell.exe"), {QStringLiteral("-NoProfile"), QStringLiteral("-NonInteractive"), QStringLiteral("-Command"), script});
+#else
+        emit voiceListError(QStringLiteral("Windows local voices are only available on Windows."));
+#endif
+        return;
     }
 
     if (provider == QStringLiteral("OpenAI")) {
@@ -226,6 +261,26 @@ void VoiceClient::stopRecordingAndTranscribe()
 void VoiceClient::speak(const QString &text, const QString &voice)
 {
     if (text.trimmed().isEmpty()) return;
+    if (m_synthesisProvider == QStringLiteral("Windows (local)")) {
+#ifdef Q_OS_WIN
+        stopSpeaking();
+        const QByteArray encodedVoice = m_voiceId.toUtf8().toBase64();
+        const QString script = QStringLiteral("$ErrorActionPreference='Stop'; Add-Type -AssemblyName System.Speech; $name=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('%1')); $s=New-Object System.Speech.Synthesis.SpeechSynthesizer; if($name -and $name -ne 'Default'){ $s.SelectVoice($name) }; $t=[Console]::In.ReadToEnd(); $s.Speak($t)").arg(QString::fromLatin1(encodedVoice));
+        m_localSpeechProcess.setProgram(QStringLiteral("powershell.exe"));
+        m_localSpeechProcess.setArguments({QStringLiteral("-NoProfile"), QStringLiteral("-NonInteractive"), QStringLiteral("-Command"), script});
+        m_localSpeechProcess.start();
+        if (!m_localSpeechProcess.waitForStarted(1500)) {
+            emit errorOccurred(QStringLiteral("Could not start Windows speech synthesis. Check that Windows PowerShell and System.Speech are available."));
+            return;
+        }
+        m_localSpeechProcess.write(text.left(12000).toUtf8());
+        m_localSpeechProcess.closeWriteChannel();
+        emit speakingChanged(true);
+#else
+        emit errorOccurred(QStringLiteral("Windows local speech synthesis is only available on Windows."));
+#endif
+        return;
+    }
     if (m_synthesisApiKey.isEmpty()) {
         emit errorOccurred(QStringLiteral("Add an API key for the selected text-to-speech provider in Settings."));
         return;
@@ -282,5 +337,9 @@ void VoiceClient::stopSpeaking()
 {
     m_player.stop();
     m_playbackBuffer.close();
+    if (m_localSpeechProcess.state() != QProcess::NotRunning) {
+        m_localSpeechProcess.kill();
+        m_localSpeechProcess.waitForFinished(500);
+    }
     emit speakingChanged(false);
 }

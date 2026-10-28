@@ -141,7 +141,7 @@ QString appStyleSheet(const QString &theme) {
       "QScrollBar::handle:vertical{background:%6;min-height:24px;border-radius:4px;} QFrame#Composer{background:%5;border:1px solid %6;border-radius:18px;}"
       "QFrame#MessageCard,QFrame#UserMessage,QFrame#AssistantMessage{background:%3;border:1px solid %6;border-radius:13px;} "
       "QFrame#UserMessage{background:%5;border-color:%6;} QFrame#AssistantMessage{background:%3;} "
-      "QTextBrowser{background:transparent;border:0;color:%2;selection-background-color:#244b78;} QTextBrowser a{color:#58a6ff;} QTextBrowser pre{background:%1;border:1px solid %6;border-radius:7px;padding:9px;} QTextBrowser code{font-family:Consolas,monospace;} "
+      "QTextBrowser{background:transparent;border:0;color:%2;selection-background-color:%7;} QTextBrowser a{color:%7;} QTextBrowser pre{background:%3;border:1px solid %6;border-radius:7px;padding:9px;} QTextBrowser code{font-family:Consolas,monospace;} "
       "QCheckBox{spacing:8px;} QCheckBox::indicator{width:15px;height:15px;border:1px solid %6;border-radius:4px;background:%3;} "
       "QCheckBox::indicator:checked{background:%7;border-color:%7;} "
       "QPushButton:disabled{color:%4;background:%3;border-color:%6;} "
@@ -151,18 +151,25 @@ QString appStyleSheet(const QString &theme) {
 }
 void setMarkdownContent(QTextBrowser *browser, const QString &markdown) {
     if (!browser) return;
-    browser->document()->setDefaultStyleSheet(
-        "body { line-height: 1.4; }"
-        "h1, h2, h3, h4, h5, h6 { margin-top: 0.8em; margin-bottom: 0.35em; }"
+    const QString theme = QSettings().value("theme", "Eclipse Dark").toString();
+    const Palette p = paletteFor(theme == "System"
+        ? (QGuiApplication::styleHints()->colorScheme() == Qt::ColorScheme::Light ? "Light" : "Eclipse Dark")
+        : theme);
+    const QString css = QString(
+        "body { line-height: 1.45; color: %1; }"
+        "h1, h2, h3, h4, h5, h6 { color: %1; margin-top: 0.8em; margin-bottom: 0.35em; }"
         "p { margin-top: 0.25em; margin-bottom: 0.55em; }"
-        "blockquote { margin-left: 0.5em; padding-left: 0.7em; border-left: 3px solid #58a6ff; color: #aab6c8; }"
-        "pre { background-color: #101722; border: 1px solid #2b3748; border-radius: 7px; padding: 9px; white-space: pre-wrap; }"
-        "code { font-family: Consolas, 'Cascadia Code', monospace; }"
+        "blockquote { margin-left: 0.5em; padding-left: 0.7em; border-left: 3px solid %2; color: %3; }"
+        "pre { background-color: %4; color: %1; border: 1px solid %5; border-radius: 7px; padding: 9px; white-space: pre-wrap; }"
+        "code { font-family: Consolas, 'Cascadia Code', monospace; color: %1; }"
         "table { border-collapse: collapse; }"
-        "th, td { border: 1px solid #344155; padding: 5px 8px; }"
-        "th { background-color: #202b3a; font-weight: bold; }"
-        "a { color: #58a6ff; }"
-        "hr { color: #344155; }");
+        "th, td { border: 1px solid %5; padding: 5px 8px; }"
+        "th { background-color: %6; color: %1; font-weight: bold; }"
+        "td { background-color: %4; }"
+        "a { color: %2; }"
+        "hr { color: %5; }")
+        .arg(p.fg, p.accent, p.muted, p.panel, p.border, p.raised);
+    browser->document()->setDefaultStyleSheet(css);
     browser->document()->setMarkdown(markdown, QTextDocument::MarkdownDialectGitHub);
 }
 QPushButton *button(const QString &text,const QString &name,QWidget *parent) {

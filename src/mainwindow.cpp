@@ -236,13 +236,21 @@ MainWindow::MainWindow(QWidget *parent):QMainWindow(parent) {
             QStringList providerModels = settings.value(QString("providers/%1/cachedModels").arg(providerName)).toStringList();
             providerModels.removeDuplicates();
             providerModels.sort(Qt::CaseInsensitive);
+            if (providerModels.isEmpty()) continue;
+            // A provider-only parent row makes the selector feel grouped. Hovering it
+            // reveals that provider's complete cached model list in the native tooltip.
+            m_models->addItem(providerName);
+            int providerRow = m_models->count() - 1;
+            m_models->setItemData(providerRow, providerName, Qt::UserRole);
+            m_models->setItemData(providerRow, QString{}, Qt::UserRole + 1);
+            m_models->setItemData(providerRow, QStringLiteral("Provider: %1\\nAvailable models:\\n• %2")
+                .arg(providerName, providerModels.join(QStringLiteral("\\n• "))), Qt::ToolTipRole);
             for(const QString &modelName : providerModels) {
-                // Provider-first labels keep the unified catalog easy to scan and naturally
-                // group every provider's models together in alphabetical provider order.
-                m_models->addItem(QString("%1  ·  %2").arg(providerName, modelName));
+                m_models->addItem(QStringLiteral("    %1").arg(modelName));
                 const int row=m_models->count()-1;
                 m_models->setItemData(row,providerName,Qt::UserRole);
                 m_models->setItemData(row,modelName,Qt::UserRole+1);
+                m_models->setItemData(row,QStringLiteral("%1 model from %2").arg(modelName,providerName),Qt::ToolTipRole);
             }
         }
         if(m_models->count()==0) m_models->addItem("Discovering models…");

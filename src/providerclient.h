@@ -4,6 +4,7 @@
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
 #include <QStringList>
+#include <QTimer>
 
 class ProviderClient final : public QObject {
     Q_OBJECT
@@ -34,4 +35,6 @@ private:
     QNetworkReply *m_reply{nullptr};
     QByteArray m_buffer;
     bool m_hadError{false};
+    QTimer m_inactivityTimer;
+    bool m_timedOut{false};
 };

@@ -354,6 +354,24 @@ MainWindow::MainWindow(QWidget *parent):QMainWindow(parent) {
     m_thinking->setChecked(settings.value("thinking",false).toBool());
     connect(m_temperature,&QSlider::valueChanged,this,[](int v){QSettings().setValue("temperature",v/10.0);});
     connect(m_thinking,&QCheckBox::toggled,this,[](bool v){QSettings().setValue("thinking",v);});
+    m_voiceClient.setApiKey(storedApiKey(QStringLiteral("OpenAI")));
+    connect(&m_voiceClient,&VoiceClient::recordingChanged,this,[this](bool recording){
+        m_voiceButton->setText(recording?QStringLiteral("Stop & transcribe"):QStringLiteral("Start voice"));
+        m_status->setText(recording?QStringLiteral("●  Listening…"):QStringLiteral("●  Transcribing speech…"));
+    });
+    connect(&m_voiceClient,&VoiceClient::transcriptReady,this,[this](const QString &text){
+        if(!m_input->toPlainText().trimmed().isEmpty()) m_input->insertPlainText(QStringLiteral("\\n"));
+        m_input->insertPlainText(text);
+        m_input->setFocus();
+        m_status->setText(QStringLiteral("●  Speech transcribed"));
+    });
+    connect(&m_voiceClient,&VoiceClient::speakingChanged,this,[this](bool speaking){
+        m_readAloudButton->setText(speaking?QStringLiteral("Stop speaking"):QStringLiteral("Read aloud"));
+    });
+    connect(&m_voiceClient,&VoiceClient::errorOccurred,this,[this](const QString &message){
+        m_status->setText(QStringLiteral("●  %1").arg(message));
+        QMessageBox::warning(this,QStringLiteral("Voice mode"),message);
+    });
     rebuildHistory(); refreshModels(); showWelcome();
 }
 void MainWindow::buildUi() {
@@ -405,6 +423,14 @@ void MainWindow::buildUi() {
     auto *composer=new QFrame(main);composer->setObjectName("Composer");auto *cl=new QVBoxLayout(composer);cl->setContentsMargins(12,10,12,10);
     m_input=new QTextEdit(composer);m_input->setPlaceholderText("Message your model…  (Ctrl+Enter to send)");m_input->setMinimumHeight(68);m_input->setMaximumHeight(140);m_input->setTabChangesFocus(false);cl->addWidget(m_input);
     auto *cb=new QHBoxLayout;
+    m_voiceButton=button("Start voice","Ghost",composer);
+    m_voiceButton->setToolTip("Record speech and transcribe it with OpenAI speech recognition.");
+    connect(m_voiceButton,&QPushButton::clicked,this,&MainWindow::toggleVoiceRecording);
+    cb->addWidget(m_voiceButton);
+    m_readAloudButton=button("Read aloud","Ghost",composer);
+    m_readAloudButton->setToolTip("Speak the latest assistant response with a natural AI voice.");
+    connect(m_readAloudButton,&QPushButton::clicked,this,&MainWindow::readLastResponseAloud);
+    cb->addWidget(m_readAloudButton);
     m_attachButton=button("Attach files  +","Ghost",composer);
     m_attachButton->setToolTip("Attach readable text/source files; PDFs can be extracted when pdftotext is installed.");
     connect(m_attachButton,&QPushButton::clicked,this,&MainWindow::attachFiles);
@@ -560,6 +586,27 @@ void MainWindow::addMessageCard(const QString &role,const QString &content,bool 
     m_messageLayout->insertWidget(m_messageLayout->count()-1,card);
     if(streaming){m_streamView=view;m_streamThinkingView=thinkingView;}
 }
+void MainWindow::toggleVoiceRecording() {
+    m_voiceClient.setApiKey(storedApiKey(QStringLiteral("OpenAI")));
+    if (m_voiceClient.isRecording()) m_voiceClient.stopRecordingAndTranscribe();
+    else m_voiceClient.startRecording();
+}
+
+void MainWindow::readLastResponseAloud() {
+    m_voiceClient.setApiKey(storedApiKey(QStringLiteral("OpenAI")));
+    if (m_readAloudButton->text() == QStringLiteral("Stop speaking")) {
+        m_voiceClient.stopSpeaking();
+        return;
+    }
+    for (auto it = m_messages.crbegin(); it != m_messages.crend(); ++it) {
+        if (it->role == QStringLiteral("assistant") && !it->content.trimmed().isEmpty()) {
+            m_voiceClient.speak(it->content);
+            return;
+        }
+    }
+    QMessageBox::information(this, QStringLiteral("Nothing to read"), QStringLiteral("There is no assistant response to read aloud yet."));
+}
+
 void MainWindow::attachFiles() {
     const QStringList files = QFileDialog::getOpenFileNames(
         this, QStringLiteral("Attach files"), QString(),

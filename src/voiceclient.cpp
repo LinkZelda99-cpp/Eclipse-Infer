@@ -34,6 +34,77 @@ void VoiceClient::setSynthesisProvider(const QString &provider, const QString &a
     m_voiceId = voiceId.trimmed();
     if (m_voiceId.isEmpty()) m_voiceId = m_synthesisProvider == QStringLiteral("ElevenLabs") ? QStringLiteral("21m00Tcm4TlvDq8ikWAM") : QStringLiteral("alloy");
 }
+void VoiceClient::fetchVoices(const QString &provider, const QString &apiKey)
+{
+    if (m_voiceListRequest) {
+        m_voiceListRequest->abort();
+        m_voiceListRequest->deleteLater();
+        m_voiceListRequest = nullptr;
+    }
+
+    if (provider == QStringLiteral("OpenAI")) {
+        const QStringList voices = {
+            QStringLiteral("Alloy"), QStringLiteral("Ash"), QStringLiteral("Ballad"),
+            QStringLiteral("Coral"), QStringLiteral("Echo"), QStringLiteral("Fable"),
+            QStringLiteral("Nova"), QStringLiteral("Onyx"), QStringLiteral("Sage"),
+            QStringLiteral("Shimmer"), QStringLiteral("Verse"), QStringLiteral("Marin"),
+            QStringLiteral("Cedar")
+        };
+        QStringList ids;
+        for (const QString &name : voices) ids.append(name.toLower());
+        emit voiceListReady(voices, ids);
+        return;
+    }
+
+    if (provider != QStringLiteral("ElevenLabs")) {
+        emit voiceListError(QStringLiteral("Voice browsing is not implemented for this provider yet."));
+        return;
+    }
+    if (apiKey.trimmed().isEmpty()) {
+        emit voiceListError(QStringLiteral("Enter your ElevenLabs API key in Settings before browsing its voices."));
+        return;
+    }
+
+    QNetworkRequest request(QUrl(QStringLiteral("https://api.elevenlabs.io/v1/voices")));
+    request.setRawHeader("xi-api-key", apiKey.trimmed().toUtf8());
+    auto *reply = m_network.get(request);
+    m_voiceListRequest = reply;
+    connect(reply, &QNetworkReply::finished, this, [this, reply]() {
+        const QByteArray body = reply->readAll();
+        if (reply->error() != QNetworkReply::NoError) {
+            emit voiceListError(QStringLiteral("Could not load ElevenLabs voices: %1").arg(QString::fromUtf8(body.left(1000))));
+        } else {
+            const QJsonObject json = QJsonDocument::fromJson(body).object();
+            const QJsonArray voices = json.value(QStringLiteral("voices")).toArray();
+            QStringList names;
+            QStringList ids;
+            for (const QJsonValue &value : voices) {
+                const QJsonObject voice = value.toObject();
+                const QString name = voice.value(QStringLiteral("name")).toString().trimmed();
+                const QString id = voice.value(QStringLiteral("voice_id")).toString().trimmed();
+                if (!name.isEmpty() && !id.isEmpty()) {
+                    names.append(name);
+                    ids.append(id);
+                }
+            }
+            if (names.isEmpty()) emit voiceListError(QStringLiteral("ElevenLabs returned no available voices for this account."));
+            else emit voiceListReady(names, ids);
+        }
+        if (m_voiceListRequest == reply) m_voiceListRequest = nullptr;
+        reply->deleteLater();
+    });
+}
+
+void VoiceClient::previewVoice(const QString &provider, const QString &apiKey, const QString &voiceId)
+{
+    const QString oldProvider = m_synthesisProvider;
+    const QString oldKey = m_synthesisApiKey;
+    const QString oldVoice = m_voiceId;
+    setSynthesisProvider(provider, apiKey, voiceId);
+    speak(QStringLiteral("Hello! This is a preview of the selected voice in Eclipse Orbit."));
+    setSynthesisProvider(oldProvider, oldKey, oldVoice);
+}
+
 bool VoiceClient::isRecording() const { return m_recording; }
 
 void VoiceClient::startRecording()

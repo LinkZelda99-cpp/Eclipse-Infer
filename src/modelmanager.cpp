@@ -34,7 +34,7 @@ QString humanSize(qint64 bytes) {
 }
 
 ModelManagerDialog::ModelManagerDialog(QWidget *parent) : QDialog(parent) {
-    setWindowTitle(QStringLiteral("Model Manager — Eclipse Infer"));
+    setWindowTitle(QStringLiteral("Model Manager — Eclipse Orbit"));
     resize(900, 620);
     setMinimumSize(720, 500);
 
@@ -323,7 +323,7 @@ void ModelManagerDialog::renameModel() {
         return;
     }
     if (QMessageBox::question(this, QStringLiteral("Rename model"),
-        QStringLiteral("Ollama does not provide an in-place rename. Eclipse Infer will copy “%1” to “%2”, then remove the original only if the copy succeeds.").arg(source, destination),
+        QStringLiteral("Ollama does not provide an in-place rename. Eclipse Orbit will copy “%1” to “%2”, then remove the original only if the copy succeeds.").arg(source, destination),
         QMessageBox::Yes | QMessageBox::Cancel, QMessageBox::Cancel) != QMessageBox::Yes) return;
 
     setBusy(true, QStringLiteral("Copying model to %1…").arg(destination));

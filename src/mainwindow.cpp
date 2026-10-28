@@ -52,6 +52,8 @@
 #include <QJsonDocument>
 #include <QVBoxLayout>
 #include <QSignalBlocker>
+#include <QStandardItemModel>
+#include <QStandardItem>
 #ifdef Q_OS_WIN
 #include <windows.h>
 #include <wincred.h>
@@ -245,6 +247,11 @@ MainWindow::MainWindow(QWidget *parent):QMainWindow(parent) {
             m_models->setItemData(providerRow, QString{}, Qt::UserRole + 1);
             m_models->setItemData(providerRow, QStringLiteral("Provider: %1\\nAvailable models:\\n• %2")
                 .arg(providerName, providerModels.join(QStringLiteral("\\n• "))), Qt::ToolTipRole);
+            if (auto *items = qobject_cast<QStandardItemModel *>(m_models->model())) {
+                if (auto *headerItem = items->item(providerRow)) {
+                    headerItem->setFlags(headerItem->flags() & ~Qt::ItemIsEnabled & ~Qt::ItemIsSelectable);
+                }
+            }
             for(const QString &modelName : providerModels) {
                 m_models->addItem(QStringLiteral("    %1").arg(modelName));
                 const int row=m_models->count()-1;

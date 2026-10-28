@@ -614,7 +614,23 @@ void MainWindow::sendMessage() {
             } else {
                 const QByteArray bytes = file.read(maxFileBytes + 1);
                 if (bytes.contains('\0')) {
-                    note = QStringLiteral("Binary file: contents are not decoded by this text-only attachment path yet.");
+                    const QString suffix = info.suffix().toLower();
+                    const QStringList documentFormats = {"doc", "docx", "odt", "rtf", "epub", "pptx", "tex"};
+                    if (documentFormats.contains(suffix)) {
+                        QProcess converter;
+                        converter.start(QStringLiteral("pandoc"), {QStringLiteral("-t"), QStringLiteral("plain"), path});
+                        if (converter.waitForStarted(1000) && converter.waitForFinished(15000) &&
+                            converter.exitStatus() == QProcess::NormalExit && converter.exitCode() == 0) {
+                            extracted = QString::fromUtf8(converter.readAllStandardOutput()).trimmed();
+                            if (extracted.isEmpty()) note = QStringLiteral("Document conversion returned no text.");
+                        } else {
+                            converter.kill();
+                            converter.waitForFinished();
+                            note = QStringLiteral("Document extraction unavailable. Install Pandoc and make it available on PATH.");
+                        }
+                    } else {
+                        note = QStringLiteral("Binary file: this format needs a dedicated parser or a vision-capable provider.");
+                    }
                 } else {
                     const QString decoded = QString::fromUtf8(bytes.constData(), bytes.size());
                     const QByteArray roundTrip = decoded.toUtf8();

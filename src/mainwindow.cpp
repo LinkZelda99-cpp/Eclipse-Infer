@@ -362,7 +362,7 @@ MainWindow::MainWindow(QWidget *parent):QMainWindow(parent) {
         m_status->setText(recording?QStringLiteral("●  Listening…"):QStringLiteral("●  Transcribing speech…"));
     });
     connect(&m_voiceClient,&VoiceClient::transcriptReady,this,[this](const QString &text){
-        if(!m_input->toPlainText().trimmed().isEmpty()) m_input->insertPlainText(QStringLiteral("\\n"));
+        if(!m_input->toPlainText().trimmed().isEmpty()) m_input->insertPlainText(QStringLiteral("\n"));
         m_input->insertPlainText(text);
         m_input->setFocus();
         m_status->setText(QStringLiteral("●  Speech transcribed"));

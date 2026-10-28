@@ -506,6 +506,9 @@ void MainWindow::buildUi() {
             }
         }
         if(menu.isEmpty()) menu.addAction("No models discovered yet")->setEnabled(false);
+        menu.addSeparator();
+        QAction *downloadAction=menu.addAction("Download local model…");
+        connect(downloadAction,&QAction::triggered,this,[this]() { showModelManager(); });
         menu.exec(m_modelSwitcher->mapToGlobal(QPoint(0,m_modelSwitcher->height())));
     });
     connect(m_models,qOverload<int>(&QComboBox::currentIndexChanged),this,[this](int index){

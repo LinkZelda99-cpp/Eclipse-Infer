@@ -280,6 +280,16 @@ ModelManagerDialog::ModelManagerDialog(QWidget *parent) : QDialog(parent) {
     connect(closeButtons, &QDialogButtonBox::rejected, this, &QDialog::reject);
     root->addWidget(closeButtons);
 
+    m_pullInactivityTimer.setSingleShot(true);
+    m_pullInactivityTimer.setInterval(120000);
+    connect(&m_pullInactivityTimer, &QTimer::timeout, this, [this]() {
+        if (!m_pullReply) return;
+        m_pullTimedOut = true;
+        m_status->setText(QStringLiteral("No download progress from Ollama for 2 minutes. The request was stopped; check Ollama/network connectivity and retry."));
+        m_progress->setFormat(QStringLiteral("Download stalled"));
+        m_pullReply->abort();
+    });
+
     connect(m_refreshButton, &QPushButton::clicked, this, &ModelManagerDialog::refreshModels);
     connect(m_pullButton, &QPushButton::clicked, this, &ModelManagerDialog::pullModel);
     connect(m_deleteButton, &QPushButton::clicked, this, &ModelManagerDialog::deleteModel);
@@ -375,6 +385,7 @@ void ModelManagerDialog::pullModel() {
     if (answer != QMessageBox::Yes) return;
 
     m_pullSucceeded = false;
+    m_pullTimedOut = false;
     m_pullBuffer.clear();
     m_progress->setRange(0, 100);
     m_progress->setValue(0);
@@ -385,8 +396,12 @@ void ModelManagerDialog::pullModel() {
     request.setTransferTimeout(0);
     m_pullReply = m_network.post(request, QJsonDocument(QJsonObject{{QStringLiteral("model"), name},
         {QStringLiteral("stream"), true}}).toJson(QJsonDocument::Compact));
-    connect(m_pullReply, &QIODevice::readyRead, this, &ModelManagerDialog::handlePullData);
+    connect(m_pullReply, &QIODevice::readyRead, this, [this]() {
+        m_pullInactivityTimer.start();
+        handlePullData();
+    });
     connect(m_pullReply, &QNetworkReply::finished, this, &ModelManagerDialog::finishPull);
+    m_pullInactivityTimer.start();
 }
 
 void ModelManagerDialog::handlePullData() {
@@ -423,6 +438,7 @@ void ModelManagerDialog::handlePullData() {
 
 void ModelManagerDialog::finishPull() {
     if (!m_pullReply) return;
+    m_pullInactivityTimer.stop();
     handlePullData();
     if (!m_pullBuffer.trimmed().isEmpty()) {
         const QByteArray last = m_pullBuffer.trimmed();
@@ -441,12 +457,16 @@ void ModelManagerDialog::finishPull() {
     reply->deleteLater();
     setBusy(false);
     m_progress->setRange(0, 100);
+    if (m_pullTimedOut) {
+        m_progress->setFormat(QStringLiteral("Download stalled"));
+        return;
+    }
     if (networkError != QNetworkReply::NoError || !m_pullSucceeded) {
         m_progress->setFormat(QStringLiteral("Download failed"));
         if (networkError != QNetworkReply::NoError)
-            m_status->setText(QStringLiteral("Download failed: %1").arg(errorText));
-        else if (m_status->text().isEmpty())
-            m_status->setText(QStringLiteral("Download failed. Check the model name and Ollama logs."));
+            m_status->setText(QStringLiteral("Download failed: %1. Check whether Ollama is still running and inspect its logs.").arg(errorText));
+        else if (m_status->text().isEmpty() || m_status->text().startsWith(QStringLiteral("Downloading")))
+            m_status->setText(QStringLiteral("Download failed: Ollama ended the stream without reporting success. Check the model name and Ollama logs."));
         return;
     }
     m_progress->setValue(100);

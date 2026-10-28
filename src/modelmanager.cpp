@@ -19,6 +19,14 @@
 #include <QDateTime>
 #include <QUrl>
 #include <QComboBox>
+#include <QGroupBox>
+#include <QDesktopServices>
+#include <QSettings>
+#include <QUrl>
+#ifdef Q_OS_WIN
+#include <windows.h>
+#include <wincred.h>
+#endif
 
 namespace {
 const QUrl ollamaUrl(const QString &path) {
@@ -31,6 +39,55 @@ QString humanSize(qint64 bytes) {
     const double mib = static_cast<double>(bytes) / (1024.0 * 1024.0);
     return QStringLiteral("%1 MiB").arg(mib, 0, 'f', 0);
 }
+QString readProviderKey(const QString &provider) {
+#ifdef Q_OS_WIN
+    const QString target = QStringLiteral("EclipseInfer/%1").arg(provider);
+    PCREDENTIALW credential = nullptr;
+    if (CredReadW(reinterpret_cast<LPCWSTR>(target.utf16()), CRED_TYPE_GENERIC, 0, &credential)) {
+        const QString key = QString::fromUtf8(reinterpret_cast<const char *>(credential->CredentialBlob),
+                                               static_cast<qsizetype>(credential->CredentialBlobSize));
+        CredFree(credential);
+        return key;
+    }
+    return {};
+#else
+    return QSettings().value(QStringLiteral("providers/%1/apiKey").arg(provider)).toString();
+#endif
+}
+void writeProviderKey(const QString &provider, const QString &key) {
+#ifdef Q_OS_WIN
+    const QString target = QStringLiteral("EclipseInfer/%1").arg(provider);
+    if (key.isEmpty()) {
+        CredDeleteW(reinterpret_cast<LPCWSTR>(target.utf16()), CRED_TYPE_GENERIC, 0);
+        return;
+    }
+    const QByteArray bytes = key.toUtf8();
+    CREDENTIALW credential{};
+    credential.Type = CRED_TYPE_GENERIC;
+    credential.TargetName = const_cast<LPWSTR>(reinterpret_cast<LPCWSTR>(target.utf16()));
+    credential.CredentialBlobSize = static_cast<DWORD>(bytes.size());
+    credential.CredentialBlob = reinterpret_cast<LPBYTE>(const_cast<char *>(bytes.constData()));
+    credential.Persist = CRED_PERSIST_LOCAL_MACHINE;
+    credential.UserName = const_cast<LPWSTR>(L"Eclipse Orbit");
+    CredWriteW(&credential, 0);
+#else
+    QSettings settings;
+    const QString path = QStringLiteral("providers/%1/apiKey").arg(provider);
+    if (key.isEmpty()) settings.remove(path);
+    else settings.setValue(path, key);
+#endif
+}
+QString keyHelpUrl(const QString &provider) {
+    if (provider == QStringLiteral("OpenAI")) return QStringLiteral("https://platform.openai.com/api-keys");
+    if (provider == QStringLiteral("OpenRouter")) return QStringLiteral("https://openrouter.ai/keys");
+    if (provider == QStringLiteral("Groq")) return QStringLiteral("https://console.groq.com/keys");
+    if (provider == QStringLiteral("Together AI")) return QStringLiteral("https://api.together.ai/settings/api-keys");
+    if (provider == QStringLiteral("DeepSeek")) return QStringLiteral("https://platform.deepseek.com/api_keys");
+    if (provider == QStringLiteral("Mistral")) return QStringLiteral("https://console.mistral.ai/api-keys/");
+    if (provider == QStringLiteral("Anthropic")) return QStringLiteral("https://console.anthropic.com/settings/keys");
+    if (provider == QStringLiteral("Google Gemini")) return QStringLiteral("https://aistudio.google.com/app/apikey");
+    return {};
+}
 }
 
 ModelManagerDialog::ModelManagerDialog(QWidget *parent) : QDialog(parent) {
@@ -42,15 +99,92 @@ ModelManagerDialog::ModelManagerDialog(QWidget *parent) : QDialog(parent) {
     root->setContentsMargins(22, 20, 22, 18);
     root->setSpacing(12);
 
-    auto *heading = new QLabel(QStringLiteral("Manage local models"), this);
+    auto *heading = new QLabel(QStringLiteral("Model Manager"), this);
     heading->setStyleSheet(QStringLiteral("font-size:20px;font-weight:700;"));
     root->addWidget(heading);
     auto *description = new QLabel(
-        QStringLiteral("Local Ollama models are detected automatically when this window opens. Choose a popular model or type a model name, then select Add / Download model. "
-                       "Cloud models are discovered in the main selector after you configure that provider in Settings."),
+        QStringLiteral("Manage local model downloads and removals, or configure cloud providers and API keys here. Local model weights stay on your device; cloud providers process prompts on their services."),
         this);
     description->setWordWrap(true);
     root->addWidget(description);
+
+    // Cloud provider configuration lives in the same manager as local model downloads.
+    auto *cloudGroup = new QGroupBox(QStringLiteral("Cloud / API models"), this);
+    auto *cloudLayout = new QFormLayout(cloudGroup);
+    auto *cloudProvider = new QComboBox(cloudGroup);
+    cloudProvider->addItems({QStringLiteral("OpenAI"), QStringLiteral("OpenRouter"), QStringLiteral("Groq"),
+        QStringLiteral("Together AI"), QStringLiteral("DeepSeek"), QStringLiteral("Mistral"),
+        QStringLiteral("Anthropic"), QStringLiteral("Google Gemini"), QStringLiteral("Custom OpenAI-compatible")});
+    auto *cloudEndpoint = new QLineEdit(cloudGroup);
+    auto *cloudKey = new QLineEdit(cloudGroup);
+    cloudKey->setEchoMode(QLineEdit::Password);
+    cloudKey->setPlaceholderText(QStringLiteral("Paste API key (stored in Windows Credential Manager)"));
+    auto *cloudHelp = new QLabel(cloudGroup);
+    cloudHelp->setWordWrap(true);
+    auto *cloudButtons = new QHBoxLayout;
+    auto *openKeyHelp = new QPushButton(QStringLiteral("Get API key / setup guide"), cloudGroup);
+    auto *saveCloudKey = new QPushButton(QStringLiteral("Save provider"), cloudGroup);
+    auto *deleteCloudKey = new QPushButton(QStringLiteral("Delete saved key"), cloudGroup);
+    cloudButtons->addWidget(openKeyHelp);
+    cloudButtons->addStretch();
+    cloudButtons->addWidget(deleteCloudKey);
+    cloudButtons->addWidget(saveCloudKey);
+    cloudLayout->addRow(QStringLiteral("Provider"), cloudProvider);
+    cloudLayout->addRow(QStringLiteral("API endpoint"), cloudEndpoint);
+    cloudLayout->addRow(QStringLiteral("API key"), cloudKey);
+    cloudLayout->addRow(QStringLiteral("Help"), cloudHelp);
+    cloudLayout->addRow(QString{}, cloudButtons);
+    root->addWidget(cloudGroup);
+
+    auto refreshCloudFields = [cloudProvider, cloudEndpoint, cloudKey, cloudHelp, openKeyHelp]() {
+        const QString provider = cloudProvider->currentText();
+        const QString defaultEndpoint =
+            provider == QStringLiteral("Custom OpenAI-compatible") ? QStringLiteral("https://api.openai.com/v1") :
+            provider == QStringLiteral("OpenAI") ? QStringLiteral("https://api.openai.com/v1") :
+            provider == QStringLiteral("OpenRouter") ? QStringLiteral("https://openrouter.ai/api/v1") :
+            provider == QStringLiteral("Groq") ? QStringLiteral("https://api.groq.com/openai/v1") :
+            provider == QStringLiteral("Together AI") ? QStringLiteral("https://api.together.xyz/v1") :
+            provider == QStringLiteral("DeepSeek") ? QStringLiteral("https://api.deepseek.com/v1") :
+            provider == QStringLiteral("Mistral") ? QStringLiteral("https://api.mistral.ai/v1") :
+            provider == QStringLiteral("Anthropic") ? QStringLiteral("https://api.anthropic.com/v1") :
+            QStringLiteral("https://generativelanguage.googleapis.com/v1beta");
+        cloudEndpoint->setText(QSettings().value(QStringLiteral("providers/%1/endpoint").arg(provider), defaultEndpoint).toString());
+        cloudKey->setText(readProviderKey(provider));
+        const QString help = keyHelpUrl(provider);
+        openKeyHelp->setEnabled(!help.isEmpty());
+        cloudHelp->setText(help.isEmpty()
+            ? QStringLiteral("Enter your provider's OpenAI-compatible base URL. Create a key in that provider's developer dashboard.")
+            : QStringLiteral("Open the provider's official key page. Follow its instructions to create a key, then paste it here."));
+    };
+    connect(cloudProvider, &QComboBox::currentTextChanged, this, [refreshCloudFields](const QString &) { refreshCloudFields(); });
+    connect(openKeyHelp, &QPushButton::clicked, this, [cloudProvider]() {
+        const QString help = keyHelpUrl(cloudProvider->currentText());
+        if (!help.isEmpty()) QDesktopServices::openUrl(QUrl(help));
+    });
+    connect(saveCloudKey, &QPushButton::clicked, this, [cloudProvider, cloudEndpoint, cloudKey, this]() {
+        const QString provider = cloudProvider->currentText();
+        const QString endpoint = cloudEndpoint->text().trimmed();
+        if (endpoint.isEmpty() || !QUrl(endpoint).isValid() ||
+            (QUrl(endpoint).scheme() != QStringLiteral("http") && QUrl(endpoint).scheme() != QStringLiteral("https"))) {
+            QMessageBox::warning(this, QStringLiteral("Invalid API endpoint"), QStringLiteral("Enter a valid http:// or https:// base URL."));
+            return;
+        }
+        QSettings settings;
+        settings.setValue(QStringLiteral("providers/%1/endpoint").arg(provider), endpoint);
+        writeProviderKey(provider, cloudKey->text().trimmed());
+        settings.setValue(QStringLiteral("provider"), provider);
+        QMessageBox::information(this, QStringLiteral("Provider saved"),
+            QStringLiteral("%1 settings saved. Select this provider in the main model selector to load its available models.").arg(provider));
+    });
+    connect(deleteCloudKey, &QPushButton::clicked, this, [cloudProvider, cloudKey, this]() {
+        const QString provider = cloudProvider->currentText();
+        if (QMessageBox::question(this, QStringLiteral("Delete API key"),
+            QStringLiteral("Remove the saved API key for %1 from this device?").arg(provider),
+            QMessageBox::Yes | QMessageBox::Cancel, QMessageBox::Cancel) != QMessageBox::Yes) return;
+        writeProviderKey(provider, {});
+        cloudKey->clear();
+    });
+    refreshCloudFields();
 
     m_models = new QTreeWidget(this);
     m_models->setColumnCount(4);

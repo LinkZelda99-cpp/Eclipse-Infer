@@ -856,7 +856,6 @@ void MainWindow::sendMessage() {
     m_input->setEnabled(false);
     if (m_attachButton) m_attachButton->setEnabled(false);
     if (m_stop) { m_stop->setEnabled(true); m_stop->setText("Stop"); m_stop->setVisible(true); }
-    const QString selectedProvider = m_models->currentData(Qt::UserRole).toString();
     const QString selectedModel = m_models->currentData(Qt::UserRole+1).toString();
     m_providerClient.configure(selectedProvider, providerEndpoint(selectedProvider), storedApiKey(selectedProvider));
     m_providerClient.chat(selectedModel, apiMessages(), m_thinking->isChecked(), m_temperature->value()/10.0,

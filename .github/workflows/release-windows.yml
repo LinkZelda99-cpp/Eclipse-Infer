@@ -36,14 +36,14 @@ jobs:
       - name: Package portable app
         shell: pwsh
         run: |
-          $stage = Join-Path $env:RUNNER_TEMP 'EclipseInfer'
+          $stage = Join-Path $env:RUNNER_TEMP 'EclipseOrbit'
           New-Item -ItemType Directory -Force -Path $stage | Out-Null
-          Copy-Item 'build/Release/EclipseInfer.exe' $stage
-          & "$env:QT_ROOT_DIR/bin/windeployqt.exe" --release --no-translations --compiler-runtime "$stage/EclipseInfer.exe"
+          Copy-Item 'build/Release/EclipseOrbit.exe' $stage
+          & "$env:QT_ROOT_DIR/bin/windeployqt.exe" --release --no-translations --compiler-runtime "$stage/EclipseOrbit.exe"
           if ($LASTEXITCODE -ne 0) { throw 'windeployqt failed' }
-          Compress-Archive -Path "$stage/*" -DestinationPath 'EclipseInfer-Windows-x64.zip' -Force
+          Compress-Archive -Path "$stage/*" -DestinationPath 'EclipseOrbit-Windows-x64.zip' -Force
 
       - name: Attach portable app to GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: EclipseInfer-Windows-x64.zip
+          files: EclipseOrbit-Windows-x64.zip

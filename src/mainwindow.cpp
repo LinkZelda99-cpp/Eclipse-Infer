@@ -1000,9 +1000,11 @@ void MainWindow::showSettings() {
         storeApiKey(provider->currentText(),apiKey->text().trimmed());
         s.setValue("voice/recognitionProvider", recognitionProvider->currentText());
         storeApiKey(QStringLiteral("Voice/") + recognitionProvider->currentText(), recognitionKey->text().trimmed());
+        m_voiceClient.setRecognitionProvider(recognitionProvider->currentText(), recognitionKey->text().trimmed());
         s.setValue("voice/synthesisProvider", synthesisProvider->currentText());
         storeApiKey(QStringLiteral("Voice/") + synthesisProvider->currentText(), synthesisKey->text().trimmed());
         s.setValue("voice/voiceId", voiceId->text().trimmed());
+        m_voiceClient.setSynthesisProvider(synthesisProvider->currentText(), synthesisKey->text().trimmed(), voiceId->text().trimmed());
         { const QSignalBlocker blocker(m_provider); m_provider->setCurrentText(provider->currentText()); }
         m_providerClient.configure(provider->currentText(),endpoint->text().trimmed(),apiKey->text().trimmed());
         s.setValue("theme",theme->currentText());s.setValue("contextLength",contextLength->value());if(m_contextLength)m_contextLength->setValue(contextLength->value());s.setValue("historyLimit",historyLimit->currentData().toInt());

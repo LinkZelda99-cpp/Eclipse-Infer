@@ -10,7 +10,7 @@
 #include <cstring>
 
 VoiceClient::VoiceClient(QObject *parent)
-    : QObject(parent), m_player(this), m_audioOutput(this), m_playbackBuffer(this)
+    : QObject(parent), m_player(), m_audioOutput(), m_playbackBuffer()
 {
     m_player.setAudioOutput(&m_audioOutput);
     connect(&m_player, &QMediaPlayer::playbackStateChanged, this, [this](QMediaPlayer::PlaybackState state) {

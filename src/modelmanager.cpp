@@ -196,7 +196,7 @@ ModelManagerDialog::ModelManagerDialog(QWidget *parent) : QDialog(parent) {
         const QString help = keyHelpUrl(cloudProvider->currentText());
         if (!help.isEmpty()) QDesktopServices::openUrl(QUrl(help));
     });
-    connect(saveCloudKey, &QPushButton::clicked, this, [cloudProvider, cloudEndpoint, cloudKey, this]() {
+    connect(saveCloudKey, &QPushButton::clicked, this, [cloudProvider, cloudEndpoint, cloudKey, refreshConfiguredCloudModels, this]() {
         const QString provider = cloudProvider->currentText();
         const QString endpoint = cloudEndpoint->text().trimmed();
         if (endpoint.isEmpty() || !QUrl(endpoint).isValid() ||
@@ -212,7 +212,7 @@ ModelManagerDialog::ModelManagerDialog(QWidget *parent) : QDialog(parent) {
         QMessageBox::information(this, QStringLiteral("Provider saved"),
             QStringLiteral("%1 settings saved. Select this provider in the main model selector to load its available models.").arg(provider));
     });
-    connect(deleteCloudKey, &QPushButton::clicked, this, [cloudProvider, cloudKey, this]() {
+    connect(deleteCloudKey, &QPushButton::clicked, this, [cloudProvider, cloudKey, refreshConfiguredCloudModels, this]() {
         const QString provider = cloudProvider->currentText();
         if (QMessageBox::question(this, QStringLiteral("Delete API key"),
             QStringLiteral("Remove the saved API key for %1 from this device?").arg(provider),

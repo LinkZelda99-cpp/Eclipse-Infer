@@ -47,6 +47,7 @@
 #include <QTextEdit>
 #include <QShortcut>
 #include <QTextDocument>
+#include <QAbstractTextDocumentLayout>
 #include <QUuid>
 #include <QJsonDocument>
 #include <QVBoxLayout>

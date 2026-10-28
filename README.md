@@ -17,8 +17,12 @@ A C++20 / Qt 6 desktop AI client for local models and hosted model APIs.
 - API keys masked in the settings UI; on Windows, keys are stored using Windows Credential Manager
 - Endpoint and provider preferences stored locally
 - Conversation history stored in the app's local settings
+- File attachments for readable UTF-8 text, source code, scripts, logs, Markdown, JSON/JSONL, YAML, TOML, XML/HTML, CSV/TSV, SQL, diffs, and configuration files
+- Optional PDF text extraction through Poppler's `pdftotext` utility
+- Optional text extraction from DOC, DOCX, ODT, RTF, EPUB, PPTX, and TeX through Pandoc
+- Attachments are imported locally into the message; each file is currently limited to 1 MiB and combined inlined text to 200,000 characters
 
-Provider APIs differ in their supported parameters and model capabilities. Some providers or models may not support reasoning controls, and custom servers may implement only part of the OpenAI-compatible API. Vision, tools, audio, image/file uploads, and provider-specific advanced features are not yet implemented. Model downloads, rename, and deletion are supported for Ollama only; hosted provider models are managed by their respective services.
+Provider APIs differ in their supported parameters and model capabilities. Some providers or models may not support reasoning controls, and custom servers may implement only part of the OpenAI-compatible API. Native image/vision input, audio, tools, and provider-specific advanced features are not yet implemented. Binary formats without a supported extractor (including images, spreadsheets, archives, and many specialist/proprietary formats) are identified but their contents are not yet parsed. File support depends on the format, optional local utilities, and the selected model/provider. Model downloads, rename, and deletion are supported for Ollama only; hosted provider models are managed by their respective services.
 
 ## Provider setup
 
@@ -99,7 +103,8 @@ When using a cloud provider, prompts and conversation context are sent to that p
 ## Known limitations / next steps
 
 - No guarantee that every third-party server implements the same subset of a compatible API
-- Advanced model features such as image input, tools/function calls, audio, structured outputs, and provider-specific reasoning controls
+- Native image/vision input, tools/function calls, audio, structured outputs, and provider-specific reasoning controls
+- Broader document and binary-file parsing; current attachments inline text, use optional `pdftotext` for PDFs and optional Pandoc for common document formats
 - API usage/cost estimates and rate-limit handling
 - Secure native key storage on macOS/Linux
 - Per-provider capability metadata and request-parameter negotiation

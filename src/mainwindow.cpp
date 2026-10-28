@@ -159,22 +159,31 @@ public:
     explicit AutoHeightTextBrowser(QWidget *parent = nullptr) : QTextBrowser(parent) {
         setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
         setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-        setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
+        setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+        document()->setDocumentMargin(0);
         connect(document()->documentLayout(), &QAbstractTextDocumentLayout::documentSizeChanged,
-                this, [this](const QSizeF &) { updateGeometry(); });
+                this, [this](const QSizeF &size) {
+            const int height = qCeil(size.height()) + frameWidth() * 2 + 6;
+            if (height != m_contentHeight) {
+                m_contentHeight = height;
+                setFixedHeight(m_contentHeight);
+                updateGeometry();
+            }
+        });
     }
 
     QSize sizeHint() const override {
-        const int contentHeight = qCeil(document()->size().height());
-        return QSize(200, contentHeight + frameWidth() * 2 + 4);
+        return QSize(200, m_contentHeight);
     }
 
 protected:
     void resizeEvent(QResizeEvent *event) override {
         QTextBrowser::resizeEvent(event);
         document()->setTextWidth(viewport()->width());
-        updateGeometry();
     }
+
+private:
+    int m_contentHeight = 32;
 };
 
 void setMarkdownContent(QTextBrowser *browser, const QString &markdown) {

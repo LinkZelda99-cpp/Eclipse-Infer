@@ -28,7 +28,7 @@ UpdateManager::UpdateManager(QObject *parent) : QObject(parent), m_network(new Q
 void UpdateManager::checkForUpdates(bool userInitiated) {
     m_userInitiated = userInitiated;
     QNetworkRequest request(latestReleaseApi);
-    request.setHeader(QNetworkRequest::UserAgentHeader, QStringLiteral("Eclipse-Infer-Updater"));
+    request.setHeader(QNetworkRequest::UserAgentHeader, QStringLiteral("Eclipse-Orbit-Updater"));
     request.setRawHeader("Accept", "application/vnd.github+json");
     QNetworkReply *reply = m_network->get(request);
     connect(reply, &QNetworkReply::finished, this, [this, reply]() {
@@ -73,11 +73,11 @@ void UpdateManager::checkForUpdates(bool userInitiated) {
             const QJsonObject asset = value.toObject();
             const QString name = asset.value(QStringLiteral("name")).toString();
 #ifdef Q_OS_WIN
-            if (name.compare(QStringLiteral("EclipseInfer-Windows-x64.zip"), Qt::CaseInsensitive) == 0) {
+            if (name.compare(QStringLiteral("EclipseOrbit-Windows-x64.zip"), Qt::CaseInsensitive) == 0) {
                 assetUrl = QUrl(asset.value(QStringLiteral("browser_download_url")).toString());
                 break;
             }
-            if (assetUrl.isEmpty() && name.compare(QStringLiteral("EclipseInfer.exe"), Qt::CaseInsensitive) == 0)
+            if (assetUrl.isEmpty() && name.compare(QStringLiteral("EclipseOrbit.exe"), Qt::CaseInsensitive) == 0)
                 assetUrl = QUrl(asset.value(QStringLiteral("browser_download_url")).toString());
 #endif
         }
@@ -95,7 +95,7 @@ void UpdateManager::downloadUpdate(const QUrl &url, const QString &version) {
     m_downloadVersion = version;
     m_downloadIsZip = url.path().endsWith(QStringLiteral(".zip"), Qt::CaseInsensitive);
     QNetworkRequest request(url);
-    request.setHeader(QNetworkRequest::UserAgentHeader, QStringLiteral("Eclipse-Infer-Updater"));
+    request.setHeader(QNetworkRequest::UserAgentHeader, QStringLiteral("Eclipse-Orbit-Updater"));
     QNetworkReply *reply = m_network->get(request);
     connect(reply, &QNetworkReply::downloadProgress, this, &UpdateManager::downloadProgress);
     connect(reply, &QNetworkReply::finished, this, [this, reply]() {

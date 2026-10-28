@@ -8,6 +8,8 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QFileDialog>
+#include <QTemporaryDir>
+#include <QDirIterator>
 #include <QProcess>
 #include <QTimer>
 #include <QCheckBox>
@@ -631,7 +633,7 @@ void MainWindow::sendMessage() {
     }
 
     QStringList attachmentSections;
-    constexpr qint64 maxFileBytes = 1024 * 1024;
+    constexpr qint64 maxFileBytes = 25 * 1024 * 1024;
     constexpr qsizetype maxInlineChars = 200000;
     qsizetype totalInlineChars = 0;
     for (const QString &path : m_pendingAttachments) {
@@ -662,8 +664,54 @@ void MainWindow::sendMessage() {
                 const QByteArray bytes = file.read(maxFileBytes + 1);
                 if (bytes.contains('\0')) {
                     const QString suffix = info.suffix().toLower();
+                    const QStringList spreadsheetFormats = {"xlsx", "xls", "ods", "xlsm"};
+                    const QStringList archiveFormats = {"zip", "7z", "tar", "gz", "tgz", "rar"};
                     const QStringList documentFormats = {"doc", "docx", "odt", "rtf", "epub", "pptx", "tex"};
-                    if (documentFormats.contains(suffix)) {
+                    if (spreadsheetFormats.contains(suffix)) {
+                        QTemporaryDir temp;
+                        QProcess converter;
+                        converter.start(QStringLiteral("libreoffice"), {QStringLiteral("--headless"), QStringLiteral("--convert-to"), QStringLiteral("csv"), QStringLiteral("--outdir"), temp.path(), path});
+                        if (temp.isValid() && converter.waitForStarted(1000) && converter.waitForFinished(20000) &&
+                            converter.exitStatus() == QProcess::NormalExit && converter.exitCode() == 0) {
+                            QFile csv(temp.filePath(info.completeBaseName() + QStringLiteral(".csv")));
+                            if (csv.open(QIODevice::ReadOnly)) extracted = QString::fromUtf8(csv.readAll()).trimmed();
+                            if (extracted.isEmpty()) note = QStringLiteral("Spreadsheet conversion returned no text.");
+                        } else {
+                            converter.kill();
+                            converter.waitForFinished();
+                            note = QStringLiteral("Spreadsheet extraction unavailable. Install LibreOffice and make it available on PATH.");
+                        }
+                    } else if (archiveFormats.contains(suffix)) {
+                        QTemporaryDir temp;
+                        QProcess extractor;
+                        extractor.start(QStringLiteral("7z"), {QStringLiteral("x"), QStringLiteral("-y"),
+                            QStringLiteral("-o") + temp.path(), path});
+                        if (temp.isValid() && extractor.waitForStarted(1000) && extractor.waitForFinished(20000) &&
+                            extractor.exitStatus() == QProcess::NormalExit && extractor.exitCode() == 0) {
+                            QStringList extractedFiles;
+                            QDirIterator it(temp.path(), QDir::Files, QDirIterator::Subdirectories);
+                            qsizetype remainingArchiveChars = 150000;
+                            while (it.hasNext() && remainingArchiveChars > 0) {
+                                const QString memberPath = it.next();
+                                QFile member(memberPath);
+                                if (!member.open(QIODevice::ReadOnly) || member.size() > maxFileBytes) continue;
+                                const QByteArray memberBytes = member.readAll();
+                                if (memberBytes.contains('\0')) continue;
+                                const QString memberText = QString::fromUtf8(memberBytes.constData(), memberBytes.size());
+                                if (memberText.toUtf8() != memberBytes) continue;
+                                const QString relative = QDir(temp.path()).relativeFilePath(memberPath);
+                                const QString piece = QStringLiteral("[Archive member: %1]\n%2").arg(relative, memberText.left(remainingArchiveChars));
+                                extractedFiles.append(piece);
+                                remainingArchiveChars -= qMin(remainingArchiveChars, memberText.size());
+                            }
+                            extracted = extractedFiles.join(QStringLiteral("\n\n"));
+                            if (extracted.isEmpty()) note = QStringLiteral("Archive was extracted, but no readable UTF-8 text files were found.");
+                        } else {
+                            extractor.kill();
+                            extractor.waitForFinished();
+                            note = QStringLiteral("Archive extraction unavailable. Install 7-Zip and make it available on PATH.");
+                        }
+                    } else if (documentFormats.contains(suffix)) {
                         QProcess converter;
                         converter.start(QStringLiteral("pandoc"), {QStringLiteral("-t"), QStringLiteral("plain"), path});
                         if (converter.waitForStarted(1000) && converter.waitForFinished(15000) &&

@@ -460,7 +460,7 @@ void MainWindow::installDownloadedUpdate(const QString &path, const QString &ver
     if (!QFileInfo(executableInfo.dir().absolutePath()).isWritable()) {
         QMessageBox::information(this, "Update downloaded",
             "The update was downloaded, but Eclipse Orbit is installed in a protected folder. Open the GitHub release page and run the update with the required permissions.");
-        QDesktopServices::openUrl(QUrl("https://github.com/LinkZelda99-cpp/Eclipse-Infer/releases/latest"));
+        QDesktopServices::openUrl(QUrl("https://github.com/LinkZelda99-cpp/Eclipse-Orbit/releases/latest"));
         return;
     }
     const QString scriptPath = QDir(QStandardPaths::writableLocation(QStandardPaths::TempLocation))
@@ -488,7 +488,7 @@ void MainWindow::installDownloadedUpdate(const QString &path, const QString &ver
         "  Remove-Item $archive -Force -ErrorAction SilentlyContinue\r\n"
         "  Remove-Item $tempDir -Recurse -Force -ErrorAction SilentlyContinue\r\n"
         "} catch {\r\n"
-        "  Start-Process 'https://github.com/LinkZelda99-cpp/Eclipse-Infer/releases/latest'\r\n"
+        "  Start-Process 'https://github.com/LinkZelda99-cpp/Eclipse-Orbit/releases/latest'\r\n"
         "  Write-Host ('Update failed: ' + $_.Exception.Message)\r\n"
         "  Read-Host 'Press Enter to close'\r\n"
         "} finally { Remove-Item -LiteralPath $MyInvocation.MyCommand.Path -Force -ErrorAction SilentlyContinue }\r\n")
@@ -503,7 +503,7 @@ void MainWindow::installDownloadedUpdate(const QString &path, const QString &ver
     if (!QProcess::startDetached("powershell.exe",
         {"-NoProfile", "-ExecutionPolicy", "Bypass", "-File", scriptPath})) {
         QMessageBox::warning(this, "Update error", "Couldn't start the installer. You can download the release manually from GitHub.");
-        QDesktopServices::openUrl(QUrl("https://github.com/LinkZelda99-cpp/Eclipse-Infer/releases/latest"));
+        QDesktopServices::openUrl(QUrl("https://github.com/LinkZelda99-cpp/Eclipse-Orbit/releases/latest"));
         return;
     }
     QMessageBox::information(this, "Installing update",
@@ -513,7 +513,7 @@ void MainWindow::installDownloadedUpdate(const QString &path, const QString &ver
     Q_UNUSED(path);
     QMessageBox::information(this, "Update downloaded",
         QString("Eclipse Orbit %1 is available. Open the release page to install it for your platform.").arg(version));
-    QDesktopServices::openUrl(QUrl("https://github.com/LinkZelda99-cpp/Eclipse-Infer/releases/latest"));
+    QDesktopServices::openUrl(QUrl("https://github.com/LinkZelda99-cpp/Eclipse-Orbit/releases/latest"));
 #endif
 }
 void MainWindow::addMessageCard(const QString &role,const QString &content,bool streaming,const QString &thinking) {

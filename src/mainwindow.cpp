@@ -153,6 +153,29 @@ QString appStyleSheet(const QString &theme) {
       "QSpinBox::up-button,QSpinBox::down-button{width:18px;border:0;background:transparent;} "
       "QToolTip{background:%3;color:%2;border:1px solid %6;padding:5px;}").arg(bg,fg,panel,muted,raised,border,p.accent,p.accentText);
 }
+class AutoHeightTextBrowser : public QTextBrowser {
+public:
+    explicit AutoHeightTextBrowser(QWidget *parent = nullptr) : QTextBrowser(parent) {
+        setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+        setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+        setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
+        connect(document()->documentLayout(), &QAbstractTextDocumentLayout::documentSizeChanged,
+                this, [this](const QSizeF &) { updateGeometry(); });
+    }
+
+    QSize sizeHint() const override {
+        const int contentHeight = qCeil(document()->size().height());
+        return QSize(200, contentHeight + frameWidth() * 2 + 4);
+    }
+
+protected:
+    void resizeEvent(QResizeEvent *event) override {
+        QTextBrowser::resizeEvent(event);
+        document()->setTextWidth(viewport()->width());
+        updateGeometry();
+    }
+};
+
 void setMarkdownContent(QTextBrowser *browser, const QString &markdown) {
     if (!browser) return;
     const QString theme = QSettings().value("theme", "Eclipse Dark").toString();
@@ -573,7 +596,7 @@ void MainWindow::addMessageCard(const QString &role,const QString &content,bool 
         auto *thinkingToggle=button("▸  Model thinking","Ghost",card);
         thinkingToggle->setStyleSheet("QPushButton{background:transparent;border:0;padding:3px 0;text-align:left;color:#58a6ff;font-size:11px;font-weight:700;} QPushButton:hover{color:#8bc4ff;}");
         layout->addWidget(thinkingToggle);
-        auto *tv=new QTextBrowser(card);tv->document()->setDocumentMargin(0);tv->setReadOnly(true);tv->setOpenExternalLinks(true);setMarkdownContent(tv, thinking);tv->setMinimumHeight(24);tv->setMaximumHeight(180);tv->setVisible(false);tv->setFrameShape(QFrame::NoFrame);
+        auto *tv=new AutoHeightTextBrowser(card);tv->document()->setDocumentMargin(0);tv->setReadOnly(true);tv->setOpenExternalLinks(true);setMarkdownContent(tv, thinking);tv->setMinimumHeight(0);tv->setVisible(false);tv->setFrameShape(QFrame::NoFrame);
         tv->setStyleSheet("QTextBrowser{background:transparent;border:0;padding:0;color:#8d9bb0;}");layout->addWidget(tv);thinkingView=tv;
         connect(thinkingToggle,&QPushButton::clicked,card,[thinkingToggle,tv](){
             const bool expand=!tv->isVisible();
@@ -582,7 +605,7 @@ void MainWindow::addMessageCard(const QString &role,const QString &content,bool 
         });
         if(streaming){m_streamThinkingLabel=thinkingToggle;}
     }
-    auto *view=new QTextBrowser(card);view->document()->setDocumentMargin(0);view->setReadOnly(true);view->setOpenExternalLinks(true);setMarkdownContent(view, content);view->setMinimumHeight(28);view->setFrameShape(QFrame::NoFrame);
+    auto *view=new AutoHeightTextBrowser(card);view->document()->setDocumentMargin(0);view->setReadOnly(true);view->setOpenExternalLinks(true);setMarkdownContent(view, content);view->setMinimumHeight(0);view->setFrameShape(QFrame::NoFrame);
     view->setStyleSheet("QTextBrowser{background:transparent;border:0;padding:0;}");layout->addWidget(view);
     connect(copyButton,&QPushButton::clicked,card,[copyButton,view](){
         QApplication::clipboard()->setText(view->toPlainText());

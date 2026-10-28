@@ -2,6 +2,7 @@
 
 #include <QHttpMultiPart>
 #include <QHttpPart>
+#include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QNetworkRequest>

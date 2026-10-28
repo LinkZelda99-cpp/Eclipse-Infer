@@ -1,0 +1,49 @@
+name: Package Windows release
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+jobs:
+  windows-portable:
+    runs-on: windows-2022
+    steps:
+      - name: Check out release source
+        uses: actions/checkout@v4
+
+      - name: Set up Qt
+        uses: jurplel/setup-qt@v4
+        with:
+          version: '6.8.3'
+          arch: 'win64_msvc2022_64'
+          cache: true
+
+      - name: Set up MSVC
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Configure
+        shell: pwsh
+        run: cmake -S . -B build -DCMAKE_PREFIX_PATH="$env:QT_ROOT_DIR" -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build build --config Release
+
+      - name: Package portable app
+        shell: pwsh
+        run: |
+          $stage = Join-Path $env:RUNNER_TEMP 'EclipseOrbit'
+          New-Item -ItemType Directory -Force -Path $stage | Out-Null
+          Copy-Item 'build/Release/EclipseOrbit.exe' $stage
+          & "$env:QT_ROOT_DIR/bin/windeployqt.exe" --release --no-translations --compiler-runtime "$stage/EclipseOrbit.exe"
+          if ($LASTEXITCODE -ne 0) { throw 'windeployqt failed' }
+          Compress-Archive -Path "$stage/*" -DestinationPath 'EclipseOrbit-Windows-x64.zip' -Force
+
+      - name: Attach portable app to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: EclipseOrbit-Windows-x64.zip

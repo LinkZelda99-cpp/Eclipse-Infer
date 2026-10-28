@@ -21,13 +21,25 @@ VoiceClient::VoiceClient(QObject *parent)
     });
 }
 
-void VoiceClient::setApiKey(const QString &key) { m_apiKey = key.trimmed(); }
+void VoiceClient::setRecognitionProvider(const QString &provider, const QString &apiKey)
+{
+    m_recognitionProvider = provider;
+    m_recognitionApiKey = apiKey.trimmed();
+}
+
+void VoiceClient::setSynthesisProvider(const QString &provider, const QString &apiKey, const QString &voiceId)
+{
+    m_synthesisProvider = provider;
+    m_synthesisApiKey = apiKey.trimmed();
+    m_voiceId = voiceId.trimmed();
+    if (m_voiceId.isEmpty()) m_voiceId = m_synthesisProvider == QStringLiteral("ElevenLabs") ? QStringLiteral("21m00Tcm4TlvDq8ikWAM") : QStringLiteral("alloy");
+}
 bool VoiceClient::isRecording() const { return m_recording; }
 
 void VoiceClient::startRecording()
 {
-    if (m_recording || m_apiKey.isEmpty()) {
-        if (m_apiKey.isEmpty()) emit errorOccurred(QStringLiteral("Voice APIs need an OpenAI API key. Add it in Settings first."));
+    if (m_recording || m_recognitionApiKey.isEmpty()) {
+        if (m_recognitionApiKey.isEmpty()) emit errorOccurred(QStringLiteral("Add an API key for the selected speech-recognition provider in Settings."));
         return;
     }
     const QAudioDevice device = QMediaDevices::defaultAudioInput();
@@ -108,17 +120,20 @@ void VoiceClient::stopRecordingAndTranscribe()
     }
 
     auto *multipart = new QHttpMultiPart(QHttpMultiPart::FormDataType, this);
+    const bool elevenLabs = m_recognitionProvider == QStringLiteral("ElevenLabs");
     QHttpPart modelPart;
-    modelPart.setHeader(QNetworkRequest::ContentDispositionHeader, QVariant(QStringLiteral("form-data; name=\"model\"")));
-    modelPart.setBody("gpt-4o-mini-transcribe");
+    modelPart.setHeader(QNetworkRequest::ContentDispositionHeader, QVariant(elevenLabs ? QStringLiteral("form-data; name=\"model_id\"") : QStringLiteral("form-data; name=\"model\"")));
+    modelPart.setBody(elevenLabs ? QByteArray("scribe_v1") : QByteArray("gpt-4o-mini-transcribe"));
     multipart->append(modelPart);
     QHttpPart filePart;
     filePart.setHeader(QNetworkRequest::ContentDispositionHeader, QVariant(QStringLiteral("form-data; name=\"file\"; filename=\"recording.wav\"")));
     filePart.setHeader(QNetworkRequest::ContentTypeHeader, QVariant(QStringLiteral("audio/wav")));
     filePart.setBody(wavData());
     multipart->append(filePart);
-    QNetworkRequest request(QUrl(QStringLiteral("https://api.openai.com/v1/audio/transcriptions")));
-    request.setRawHeader("Authorization", QByteArray("Bearer ") + m_apiKey.toUtf8());
+    const bool elevenLabs = m_recognitionProvider == QStringLiteral("ElevenLabs");
+    QNetworkRequest request(QUrl(elevenLabs ? QStringLiteral("https://api.elevenlabs.io/v1/speech-to-text") : QStringLiteral("https://api.openai.com/v1/audio/transcriptions")));
+    if (elevenLabs) request.setRawHeader("xi-api-key", m_recognitionApiKey.toUtf8());
+    else request.setRawHeader("Authorization", QByteArray("Bearer ") + m_recognitionApiKey.toUtf8());
     auto *reply = m_network.post(request, multipart);
     multipart->setParent(reply);
     m_request = reply;
@@ -140,21 +155,36 @@ void VoiceClient::stopRecordingAndTranscribe()
 void VoiceClient::speak(const QString &text, const QString &voice)
 {
     if (text.trimmed().isEmpty()) return;
-    if (m_apiKey.isEmpty()) {
-        emit errorOccurred(QStringLiteral("Voice APIs need an OpenAI API key. Add it in Settings first."));
+    if (m_synthesisApiKey.isEmpty()) {
+        emit errorOccurred(QStringLiteral("Add an API key for the selected text-to-speech provider in Settings."));
         return;
     }
     stopSpeaking();
-    QJsonObject payload{
-        {QStringLiteral("model"), QStringLiteral("gpt-4o-mini-tts")},
-        {QStringLiteral("voice"), voice},
-        {QStringLiteral("input"), text.left(4000)},
-        {QStringLiteral("instructions"), QStringLiteral("Speak naturally and clearly, with warm conversational pacing and subtle expressive intonation.")},
-        {QStringLiteral("response_format"), QStringLiteral("mp3")}
-    };
-    QNetworkRequest request(QUrl(QStringLiteral("https://api.openai.com/v1/audio/speech")));
+    const bool elevenLabs = m_synthesisProvider == QStringLiteral("ElevenLabs");
+    QJsonObject payload;
+    if (elevenLabs) {
+        payload.insert(QStringLiteral("text"), text.left(4000));
+        payload.insert(QStringLiteral("model_id"), QStringLiteral("eleven_multilingual_v2"));
+        payload.insert(QStringLiteral("voice_settings"), QJsonObject{
+            {QStringLiteral("stability"), 0.5},
+            {QStringLiteral("similarity_boost"), 0.75}
+        });
+    } else {
+        payload = QJsonObject{
+            {QStringLiteral("model"), QStringLiteral("gpt-4o-mini-tts")},
+            {QStringLiteral("voice"), m_voiceId.isEmpty() ? voice : m_voiceId},
+            {QStringLiteral("input"), text.left(4000)},
+            {QStringLiteral("instructions"), QStringLiteral("Speak naturally and clearly, with warm conversational pacing and subtle expressive intonation.")},
+            {QStringLiteral("response_format"), QStringLiteral("mp3")}
+        };
+    }
+    const QUrl url = elevenLabs
+        ? QUrl(QStringLiteral("https://api.elevenlabs.io/v1/text-to-speech/%1?output_format=mp3_44100_128").arg(m_voiceId))
+        : QUrl(QStringLiteral("https://api.openai.com/v1/audio/speech"));
+    QNetworkRequest request(url);
     request.setHeader(QNetworkRequest::ContentTypeHeader, QStringLiteral("application/json"));
-    request.setRawHeader("Authorization", QByteArray("Bearer ") + m_apiKey.toUtf8());
+    if (elevenLabs) request.setRawHeader("xi-api-key", m_synthesisApiKey.toUtf8());
+    else request.setRawHeader("Authorization", QByteArray("Bearer ") + m_synthesisApiKey.toUtf8());
     auto *reply = m_network.post(request, QJsonDocument(payload).toJson(QJsonDocument::Compact));
     m_request = reply;
     connect(reply, &QNetworkReply::finished, this, [this, reply]() {

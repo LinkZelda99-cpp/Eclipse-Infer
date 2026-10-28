@@ -357,7 +357,6 @@ MainWindow::MainWindow(QWidget *parent):QMainWindow(parent) {
     m_thinking->setChecked(settings.value("thinking",false).toBool());
     connect(m_temperature,&QSlider::valueChanged,this,[](int v){QSettings().setValue("temperature",v/10.0);});
     connect(m_thinking,&QCheckBox::toggled,this,[](bool v){QSettings().setValue("thinking",v);});
-    const QSettings settings;
     const QString recognitionProvider = settings.value("voice/recognitionProvider", "OpenAI").toString();
     const QString synthesisProvider = settings.value("voice/synthesisProvider", "OpenAI").toString();
     m_voiceClient.setRecognitionProvider(recognitionProvider, storedApiKey(QStringLiteral("Voice/") + recognitionProvider));
@@ -604,7 +603,11 @@ void MainWindow::toggleVoiceRecording() {
 }
 
 void MainWindow::readLastResponseAloud() {
-    m_voiceClient.setApiKey(storedApiKey(QStringLiteral("OpenAI")));
+    const QSettings settings;
+    const QString synthesisProvider = settings.value("voice/synthesisProvider", "OpenAI").toString();
+    m_voiceClient.setSynthesisProvider(synthesisProvider,
+        storedApiKey(QStringLiteral("Voice/") + synthesisProvider),
+        settings.value("voice/voiceId", synthesisProvider == "ElevenLabs" ? "21m00Tcm4TlvDq8ikWAM" : "alloy").toString());
     if (m_readAloudButton->text() == QStringLiteral("Stop speaking")) {
         m_voiceClient.stopSpeaking();
         return;

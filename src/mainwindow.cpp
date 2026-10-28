@@ -361,7 +361,7 @@ MainWindow::MainWindow(QWidget *parent):QMainWindow(parent) {
     const QString recognitionProvider = settings.value("voice/recognitionProvider", "OpenAI").toString();
     const QString synthesisProvider = settings.value("voice/synthesisProvider", "OpenAI").toString();
     m_voiceClient.setRecognitionProvider(recognitionProvider, storedApiKey(QStringLiteral("Voice/") + recognitionProvider));
-    m_voiceClient.setSynthesisProvider(synthesisProvider, storedApiKey(QStringLiteral("Voice/") + synthesisProvider), settings.value("voice/voiceId", synthesisProvider == "ElevenLabs" ? "21m00Tcm4TlvD8ikWAM" : "alloy").toString());
+    m_voiceClient.setSynthesisProvider(synthesisProvider, storedApiKey(QStringLiteral("Voice/") + synthesisProvider), settings.value("voice/voiceId", synthesisProvider == "ElevenLabs" ? "21m00Tcm4TlvDq8ikWAM" : "alloy").toString());
     connect(&m_voiceClient,&VoiceClient::recordingChanged,this,[this](bool recording){
         m_voiceButton->setText(recording?QStringLiteral("Stop & transcribe"):QStringLiteral("Start voice"));
         m_status->setText(recording?QStringLiteral("●  Listening…"):QStringLiteral("●  Transcribing speech…"));
@@ -598,7 +598,7 @@ void MainWindow::toggleVoiceRecording() {
     const QString recognitionProvider = settings.value("voice/recognitionProvider", "OpenAI").toString();
     const QString synthesisProvider = settings.value("voice/synthesisProvider", "OpenAI").toString();
     m_voiceClient.setRecognitionProvider(recognitionProvider, storedApiKey(QStringLiteral("Voice/") + recognitionProvider));
-    m_voiceClient.setSynthesisProvider(synthesisProvider, storedApiKey(QStringLiteral("Voice/") + synthesisProvider), settings.value("voice/voiceId", synthesisProvider == "ElevenLabs" ? "21m00Tcm4TlvD8ikWAM" : "alloy").toString());
+    m_voiceClient.setSynthesisProvider(synthesisProvider, storedApiKey(QStringLiteral("Voice/") + synthesisProvider), settings.value("voice/voiceId", synthesisProvider == "ElevenLabs" ? "21m00Tcm4TlvDq8ikWAM" : "alloy").toString());
     if (m_voiceClient.isRecording()) m_voiceClient.stopRecordingAndTranscribe();
     else m_voiceClient.startRecording();
 }

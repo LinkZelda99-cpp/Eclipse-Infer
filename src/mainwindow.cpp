@@ -226,7 +226,11 @@ MainWindow::MainWindow(QWidget *parent):QMainWindow(parent) {
         const QString oldModel=m_models->currentData(Qt::UserRole+1).toString();
         const QSignalBlocker modelBlocker(m_models);
         m_models->clear();
+        const bool localOnly = settings.value("localOnlyMode", false).toBool();
         for(const QString &providerName : ProviderClient::providers()) {
+            const bool localProvider = providerName == "Ollama (local)" || providerName == "LM Studio (local)" ||
+                providerName == "llama.cpp (local)" || providerName == "vLLM (local)" || providerName == "LocalAI";
+            if (localOnly && !localProvider) continue;
             const QStringList providerModels=settings.value(QString("providers/%1/cachedModels").arg(providerName)).toStringList();
             for(const QString &modelName : providerModels) {
                 m_models->addItem(QString("%1  ·  %2").arg(modelName,providerName));
@@ -509,9 +513,11 @@ void MainWindow::refreshModels(){
     m_status->setText("●  Discovering available models…");
     // Discover local runtimes automatically. Query hosted providers only when an API key
     // is configured, avoiding needless authentication failures on a fresh install.
+    const bool localOnly = QSettings().value("localOnlyMode", false).toBool();
     for (const QString &provider : ProviderClient::providers()) {
         const bool local = provider == "Ollama (local)" || provider == "LM Studio (local)" ||
             provider == "llama.cpp (local)" || provider == "vLLM (local)" || provider == "LocalAI";
+        if (localOnly && !local) continue;
         if (!local && storedApiKey(provider).isEmpty()) continue;
         m_providerClient.configure(provider, providerEndpoint(provider), storedApiKey(provider));
         m_providerClient.refreshModels();
@@ -674,6 +680,15 @@ void MainWindow::sendMessage() {
     if (prompt.isEmpty() && m_pendingAttachments.isEmpty()) return;
     if (m_models->currentText().isEmpty() || !m_models->currentData(Qt::UserRole).isValid()) {
         QMessageBox::information(this, "No model selected", "Choose a model from the selector. Open Model Manager to add a local model, or Settings to configure a hosted provider.");
+        return;
+    }
+
+    const QString selectedProvider = m_models->currentData(Qt::UserRole).toString();
+    const bool localProvider = selectedProvider == "Ollama (local)" || selectedProvider == "LM Studio (local)" ||
+        selectedProvider == "llama.cpp (local)" || selectedProvider == "vLLM (local)" || selectedProvider == "LocalAI";
+    if (QSettings().value("localOnlyMode", false).toBool() && !localProvider) {
+        QMessageBox::warning(this, "Local-only mode",
+            "Local-only mode is enabled. Select a model from a local runtime; hosted providers are blocked.");
         return;
     }
 
@@ -940,6 +955,17 @@ void MainWindow::showSettings() {
     QSettings settings;int themeIndex=theme->findText(settings.value("theme","Eclipse Dark").toString());if(themeIndex>=0)theme->setCurrentIndex(themeIndex);
     connect(theme,&QComboBox::currentTextChanged,this,[this](const QString &name){applyTheme(name);});
     auto *provider = new QComboBox(&dialog); provider->addItems(ProviderClient::providers()); provider->setCurrentText(m_provider->currentText());
+    auto *localOnly = new QCheckBox("Local-only mode (block hosted chat models)", &dialog);
+    localOnly->setChecked(settings.value("localOnlyMode", false).toBool());
+    localOnly->setToolTip("When enabled, chat discovery and model selection are restricted to local runtimes. No hosted chat fallback is allowed.");
+    connect(localOnly, &QCheckBox::toggled, &dialog, [provider](bool enabled) {
+        if (enabled) {
+            const QStringList localProviders = {"Ollama (local)", "LM Studio (local)", "llama.cpp (local)", "vLLM (local)", "LocalAI"};
+            if (!localProviders.contains(provider->currentText())) provider->setCurrentText("Ollama (local)");
+        }
+        provider->setEnabled(!enabled);
+    });
+    provider->setEnabled(!localOnly->isChecked());
     auto *endpoint = new QLineEdit(providerEndpoint(provider->currentText()), &dialog);
     auto *apiKey = new QLineEdit(storedApiKey(provider->currentText()), &dialog); apiKey->setEchoMode(QLineEdit::Password); apiKey->setPlaceholderText("Key for the selected chat provider");
     connect(provider, &QComboBox::currentTextChanged, &dialog, [endpoint, apiKey](const QString &name) { endpoint->setText(providerEndpoint(name)); apiKey->setText(storedApiKey(name)); });
@@ -1001,13 +1027,14 @@ void MainWindow::showSettings() {
     auto *historyLimit=new QComboBox(&dialog);historyLimit->addItem("10 conversations",10);historyLimit->addItem("20 conversations",20);historyLimit->addItem("30 conversations",30);
     int limitIndex=historyLimit->findData(settings.value("historyLimit",30));if(limitIndex>=0)historyLimit->setCurrentIndex(limitIndex);
     auto *clearHistory=button("Delete all saved conversations","", &dialog);
-    form->addRow("Appearance",theme);form->addRow("Chat provider",provider);form->addRow("Chat API endpoint",endpoint);form->addRow("Chat provider API key",apiKey);form->addRow("Speech recognition provider",recognitionProvider);form->addRow("Speech recognition API key",recognitionKey);form->addRow("Voice generation provider",synthesisProvider);form->addRow("Voice generation API key",synthesisKey);form->addRow("Voice",voiceId);form->addRow("",refreshVoices);form->addRow("",previewVoice);form->addRow("",voiceStatus);form->addRow("Context window (tokens)",contextLength);form->addRow("Keep recent chats",historyLimit);layout->addLayout(form);
+    form->addRow("Appearance",theme);form->addRow("",localOnly);form->addRow("Chat provider",provider);form->addRow("Chat API endpoint",endpoint);form->addRow("Chat provider API key",apiKey);form->addRow("Speech recognition provider",recognitionProvider);form->addRow("Speech recognition API key",recognitionKey);form->addRow("Voice generation provider",synthesisProvider);form->addRow("Voice generation API key",synthesisKey);form->addRow("Voice",voiceId);form->addRow("",refreshVoices);form->addRow("",previewVoice);form->addRow("",voiceStatus);form->addRow("Context window (tokens)",contextLength);form->addRow("Keep recent chats",historyLimit);layout->addLayout(form);
     auto *privacy=new QLabel("Chats and preferences are stored locally. Prompts are sent to the selected provider; cloud providers receive prompts over the internet.",&dialog);privacy->setWordWrap(true);privacy->setObjectName("Muted");layout->addWidget(privacy);layout->addWidget(clearHistory);
     auto *buttons=new QDialogButtonBox(QDialogButtonBox::Save|QDialogButtonBox::Cancel,&dialog);layout->addWidget(buttons);
     connect(clearHistory,&QPushButton::clicked,&dialog,[this,&dialog](){if(QMessageBox::question(&dialog,"Delete saved chats","Permanently delete all saved conversation history?")==QMessageBox::Yes){QSettings s;const auto ids=s.value("conversationIds").toStringList();for(const auto &id:ids)s.remove("conversations/"+id);s.remove("conversationIds");m_historyIds.clear();rebuildHistory();}});
     connect(buttons,&QDialogButtonBox::rejected,&dialog,[this,&dialog,&settings](){applyTheme(settings.value("theme","Eclipse Dark").toString());dialog.reject();});
-    connect(buttons,&QDialogButtonBox::accepted,&dialog,[this,&dialog,theme,provider,endpoint,apiKey,recognitionProvider,recognitionKey,synthesisProvider,synthesisKey,voiceId,contextLength,historyLimit](){
+    connect(buttons,&QDialogButtonBox::accepted,&dialog,[this,&dialog,theme,provider,localOnly,endpoint,apiKey,recognitionProvider,recognitionKey,synthesisProvider,synthesisKey,voiceId,contextLength,historyLimit](){
         QSettings s;
+        s.setValue("localOnlyMode", localOnly->isChecked());
         s.setValue("provider",provider->currentText());
         s.setValue(QStringLiteral("providers/%1/endpoint").arg(provider->currentText()),endpoint->text().trimmed());
         storeApiKey(provider->currentText(),apiKey->text().trimmed());

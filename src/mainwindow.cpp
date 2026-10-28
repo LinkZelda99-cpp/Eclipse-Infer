@@ -76,7 +76,7 @@ QPixmap eclipseLogoPixmap(int size, const QColor &color) {
 
     const QPixmap originalPixmap(QStringLiteral(":/eclipse-logo.png"));
     if (originalPixmap.isNull()) {
-        qWarning("Eclipse Infer: failed to load :/eclipse-logo.png from Qt resources");
+        qWarning("Eclipse Orbit: failed to load :/eclipse-logo.png from Qt resources");
         return transparent;
     }
 
@@ -115,7 +115,7 @@ void storeApiKey(const QString &provider, const QString &key) {
     credential.CredentialBlobSize = static_cast<DWORD>(bytes.size());
     credential.CredentialBlob = reinterpret_cast<LPBYTE>(const_cast<char *>(bytes.constData()));
     credential.Persist = CRED_PERSIST_LOCAL_MACHINE;
-    credential.UserName = const_cast<LPWSTR>(L"Eclipse Infer");
+    credential.UserName = const_cast<LPWSTR>(L"Eclipse Orbit");
     CredWriteW(&credential, 0);
 #else
     QSettings().setValue(QStringLiteral("providers/%1/apiKey").arg(provider), key);
@@ -261,9 +261,9 @@ MainWindow::MainWindow(QWidget *parent):QMainWindow(parent) {
     QApplication::setQuitOnLastWindowClosed(false);
     if (QSystemTrayIcon::isSystemTrayAvailable()) {
         m_trayIcon = new QSystemTrayIcon(windowIcon(), this);
-        m_trayIcon->setToolTip(QStringLiteral("Eclipse Infer"));
+        m_trayIcon->setToolTip(QStringLiteral("Eclipse Orbit"));
         auto *trayMenu = new QMenu(this);
-        QAction *openAction = trayMenu->addAction(QStringLiteral("Open Eclipse Infer"));
+        QAction *openAction = trayMenu->addAction(QStringLiteral("Open Eclipse Orbit"));
         connect(openAction, &QAction::triggered, this, [this]() {
             showNormal();
             raise();
@@ -284,14 +284,14 @@ MainWindow::MainWindow(QWidget *parent):QMainWindow(parent) {
         m_trayIcon->show();
     } else {
         QApplication::setQuitOnLastWindowClosed(true);
-        qWarning("Eclipse Infer: Windows system tray is not available.");
+        qWarning("Eclipse Orbit: Windows system tray is not available.");
     }
     m_updateManager = new UpdateManager(this);
     connect(m_updateManager, &UpdateManager::upToDate, this, [this](bool userInitiated) {
         QSettings().setValue("updates/lastCheckUtc", QDateTime::currentDateTimeUtc().toString(Qt::ISODate));
         if (userInitiated)
-            QMessageBox::information(this, "Eclipse Infer is up to date",
-                                     QString("You're running Eclipse Infer %1, the latest stable release.").arg(QApplication::applicationVersion()));
+            QMessageBox::information(this, "Eclipse Orbit is up to date",
+                                     QString("You're running Eclipse Orbit %1, the latest stable release.").arg(QApplication::applicationVersion()));
     });
     connect(m_updateManager, &UpdateManager::checkFailed, this, [this](const QString &message, bool userInitiated) {
         if (userInitiated)
@@ -302,9 +302,9 @@ MainWindow::MainWindow(QWidget *parent):QMainWindow(parent) {
         QSettings().setValue("updates/lastCheckUtc", QDateTime::currentDateTimeUtc().toString(Qt::ISODate));
         const bool canInstall = !assetUrl.isEmpty();
         QMessageBox dialog(this);
-        dialog.setWindowTitle("Eclipse Infer update available");
+        dialog.setWindowTitle("Eclipse Orbit update available");
         dialog.setIcon(QMessageBox::Information);
-        dialog.setText(QString("Eclipse Infer %1 is available (you have %2).")
+        dialog.setText(QString("Eclipse Orbit %1 is available (you have %2).")
                        .arg(version, QApplication::applicationVersion()));
         dialog.setInformativeText(notes.trimmed().isEmpty()
             ? QStringLiteral("View the release notes before updating.")
@@ -360,7 +360,7 @@ void MainWindow::buildUi() {
     auto *side=new QFrame(root); side->setObjectName("Sidebar"); side->setFixedWidth(286);
     auto *sl=new QVBoxLayout(side); sl->setContentsMargins(17,22,17,18); sl->setSpacing(12);
     auto *brandrow=new QHBoxLayout; m_logoLabel=new QLabel(side); m_logoLabel->setFixedSize(32,32); m_logoLabel->setScaledContents(true);
-    auto *brand=new QLabel("ECLIPSE INFER",side); brand->setObjectName("Brand"); brandrow->addWidget(m_logoLabel);brandrow->addWidget(brand,1);sl->addLayout(brandrow);
+    auto *brand=new QLabel("ECLIPSE ORBIT",side); brand->setObjectName("Brand"); brandrow->addWidget(m_logoLabel);brandrow->addWidget(brand,1);sl->addLayout(brandrow);
     auto *tag=new QLabel("LOCAL + HOSTED AI",side);tag->setObjectName("Eyebrow");sl->addWidget(tag);sl->addSpacing(10);
     auto *newButton=button("＋   New chat","Primary",side);sl->addWidget(newButton);connect(newButton,&QPushButton::clicked,this,&MainWindow::newChat);
     auto *modelsButton=button("▦   Model Manager","Ghost",side);sl->addWidget(modelsButton);connect(modelsButton,&QPushButton::clicked,this,&MainWindow::showModelManager);
@@ -381,7 +381,7 @@ void MainWindow::buildUi() {
     connect(refresh,&QPushButton::clicked,this,&MainWindow::refreshModels);outer->addWidget(side);
     auto *main=new QWidget(root);auto *ml=new QVBoxLayout(main);ml->setContentsMargins(28,18,28,20);ml->setSpacing(13);
     auto *top=new QHBoxLayout; m_provider=new QComboBox(main);m_provider->addItems(ProviderClient::providers());m_provider->hide(); auto *mlabel=new QLabel("MODEL",main);mlabel->setObjectName("Eyebrow");top->addWidget(mlabel);
-    m_models=new QComboBox(main);m_models->setMinimumWidth(220);m_models->setMaximumWidth(360);m_models->setEditable(true);m_models->setInsertPolicy(QComboBox::NoInsert);m_models->setMaxVisibleItems(18);m_models->setPlaceholderText("Search or choose a model…");m_models->setToolTip("Search and select any discovered model. Eclipse Infer routes requests to its provider automatically.");
+    m_models=new QComboBox(main);m_models->setMinimumWidth(220);m_models->setMaximumWidth(360);m_models->setEditable(true);m_models->setInsertPolicy(QComboBox::NoInsert);m_models->setMaxVisibleItems(18);m_models->setPlaceholderText("Search or choose a model…");m_models->setToolTip("Search and select any discovered model. Eclipse Orbit routes requests to its provider automatically.");
     if (m_models->completer()) { m_models->completer()->setCaseSensitivity(Qt::CaseInsensitive); m_models->completer()->setFilterMode(Qt::MatchContains); m_models->completer()->setCompletionMode(QCompleter::PopupCompletion); }
     connect(m_models,qOverload<int>(&QComboBox::currentIndexChanged),this,[this](int index){
         if(index<0 || !m_models->itemData(index,Qt::UserRole).isValid()) return;
@@ -459,7 +459,7 @@ void MainWindow::installDownloadedUpdate(const QString &path, const QString &ver
     const QFileInfo executableInfo(executable);
     if (!QFileInfo(executableInfo.dir().absolutePath()).isWritable()) {
         QMessageBox::information(this, "Update downloaded",
-            "The update was downloaded, but Eclipse Infer is installed in a protected folder. Open the GitHub release page and run the update with the required permissions.");
+            "The update was downloaded, but Eclipse Orbit is installed in a protected folder. Open the GitHub release page and run the update with the required permissions.");
         QDesktopServices::openUrl(QUrl("https://github.com/LinkZelda99-cpp/Eclipse-Infer/releases/latest"));
         return;
     }
@@ -507,12 +507,12 @@ void MainWindow::installDownloadedUpdate(const QString &path, const QString &ver
         return;
     }
     QMessageBox::information(this, "Installing update",
-        QString("Eclipse Infer %1 has been downloaded. The app will close, update its files, and restart.").arg(version));
+        QString("Eclipse Orbit %1 has been downloaded. The app will close, update its files, and restart.").arg(version));
     qApp->quit();
 #else
     Q_UNUSED(path);
     QMessageBox::information(this, "Update downloaded",
-        QString("Eclipse Infer %1 is available. Open the release page to install it for your platform.").arg(version));
+        QString("Eclipse Orbit %1 is available. Open the release page to install it for your platform.").arg(version));
     QDesktopServices::openUrl(QUrl("https://github.com/LinkZelda99-cpp/Eclipse-Infer/releases/latest"));
 #endif
 }
@@ -523,7 +523,7 @@ void MainWindow::addMessageCard(const QString &role,const QString &content,bool 
 
     // Keep the role and message actions together so long replies remain easy to scan.
     auto *header=new QHBoxLayout;header->setSpacing(8);
-    auto *label=new QLabel((role=="user"?"YOU":"ECLIPSE INFER"),card);
+    auto *label=new QLabel((role=="user"?"YOU":"ECLIPSE ORBIT"),card);
     label->setStyleSheet(QString("font-size:10px;font-weight:800;letter-spacing:1px;color:%1;").arg(role=="user"?"#58a6ff":"#8d9bb0"));
     header->addWidget(label);header->addStretch();
     auto *copyButton=button("Copy","MessageAction",card);
@@ -660,7 +660,7 @@ void MainWindow::openConversation(const QString &id) {
     m_chatTitle->setText(m_title);m_scroll->verticalScrollBar()->setValue(m_scroll->verticalScrollBar()->maximum());
 }
 void MainWindow::showSettings() {
-    QDialog dialog(this);dialog.setWindowTitle("Eclipse Infer Settings");dialog.setMinimumWidth(420);
+    QDialog dialog(this);dialog.setWindowTitle("Eclipse Orbit Settings");dialog.setMinimumWidth(420);
     auto *layout=new QVBoxLayout(&dialog);auto *form=new QFormLayout;
     auto *theme=new QComboBox(&dialog);
     const QStringList themes={"System","ChatGPT Dark","Eclipse Dark","Light","Midnight Blue","AMOLED Black","Dracula","Nord","Solarized Dark","Solarized Light","Forest","Sunset","Rose Pine","Monokai","Cyberpunk"};

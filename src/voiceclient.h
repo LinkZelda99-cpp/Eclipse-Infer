@@ -18,6 +18,8 @@ public:
     explicit VoiceClient(QObject *parent = nullptr);
     void setRecognitionProvider(const QString &provider, const QString &apiKey);
     void setSynthesisProvider(const QString &provider, const QString &apiKey, const QString &voiceId);
+    void fetchVoices(const QString &provider, const QString &apiKey);
+    void previewVoice(const QString &provider, const QString &apiKey, const QString &voiceId);
     bool isRecording() const;
     void startRecording();
     void stopRecordingAndTranscribe();
@@ -29,6 +31,8 @@ signals:
     void transcriptReady(const QString &text);
     void speakingChanged(bool speaking);
     void errorOccurred(const QString &message);
+    void voiceListReady(const QStringList &names, const QStringList &ids);
+    void voiceListError(const QString &message);
 
 private:
     QByteArray wavData() const;
@@ -44,6 +48,7 @@ private:
     QByteArray m_pcm;
     QNetworkAccessManager m_network;
     QPointer<QNetworkReply> m_request;
+    QPointer<QNetworkReply> m_voiceListRequest;
     QMediaPlayer m_player;
     QAudioOutput m_audioOutput;
     QBuffer m_playbackBuffer;

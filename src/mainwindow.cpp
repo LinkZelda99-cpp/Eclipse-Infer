@@ -210,12 +210,16 @@ MainWindow::MainWindow(QWidget *parent):QMainWindow(parent) {
         m_status->setStyleSheet(QString("color:%1;font-size:11px;").arg(ok?"#43c78b":"#e58c80"));
     });
     connect(&m_providerClient,&ProviderClient::tokenReceived,this,[this](const QString &part){
+        auto *scrollBar=m_scroll->verticalScrollBar();
+        const bool followOutput=scrollBar->value()>=scrollBar->maximum()-40;
         if(m_messages.isEmpty()||m_messages.last().role!="assistant")m_messages.append(Message{"assistant", QString{}, QString{}});
         m_messages.last().content+=part;
         if(m_streamView)setMarkdownContent(m_streamView, m_messages.last().content);
-        m_scroll->verticalScrollBar()->setValue(m_scroll->verticalScrollBar()->maximum());
+        if(followOutput)scrollBar->setValue(scrollBar->maximum());
     });
     connect(&m_providerClient,&ProviderClient::thinkingReceived,this,[this](const QString &part){
+        auto *scrollBar=m_scroll->verticalScrollBar();
+        const bool followOutput=scrollBar->value()>=scrollBar->maximum()-40;
         if(m_messages.isEmpty()||m_messages.last().role!="assistant")m_messages.append(Message{"assistant", QString{}, QString{}});
         m_messages.last().thinking+=part;
         // Persist thinking as it streams so saved chats retain it if generation is interrupted.
@@ -223,7 +227,7 @@ MainWindow::MainWindow(QWidget *parent):QMainWindow(parent) {
         if(m_streamThinkingLabel)m_streamThinkingLabel->setVisible(true);
         if(m_streamThinkingView)setMarkdownContent(m_streamThinkingView, m_messages.last().thinking);
         if(m_streamView && m_messages.last().content.isEmpty())setMarkdownContent(m_streamView, "*Thinking…*");
-        m_scroll->verticalScrollBar()->setValue(m_scroll->verticalScrollBar()->maximum());
+        if(followOutput)scrollBar->setValue(scrollBar->maximum());
     });
     connect(&m_providerClient,&ProviderClient::errorOccurred,this,[this](const QString &msg){
         m_status->setText(QString("●  %1").arg(msg)); m_status->setStyleSheet("color:#e58c80;font-size:11px;");

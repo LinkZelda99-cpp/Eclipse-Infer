@@ -160,9 +160,9 @@ void setMarkdownContent(QTextBrowser *browser, const QString &markdown) {
         ? (QGuiApplication::styleHints()->colorScheme() == Qt::ColorScheme::Light ? "Light" : "Eclipse Dark")
         : theme);
     const QString css = QString(
-        "body { line-height: 1.45; color: %1; }"
-        "h1, h2, h3, h4, h5, h6 { color: %1; margin-top: 0.8em; margin-bottom: 0.35em; }"
-        "p { margin-top: 0.25em; margin-bottom: 0.55em; }"
+        "body { line-height: 1.25; color: %1; }"
+        "h1, h2, h3, h4, h5, h6 { color: %1; margin-top: 0.45em; margin-bottom: 0.2em; }"
+        "p { margin-top: 0.1em; margin-bottom: 0.3em; }"
         "blockquote { margin-left: 0.5em; padding-left: 0.7em; border-left: 3px solid %2; color: %3; }"
         "pre { background-color: %4; color: %1; border: 1px solid %5; border-radius: 7px; padding: 9px; white-space: pre-wrap; }"
         "code { font-family: Consolas, 'Cascadia Code', monospace; color: %1; }"
@@ -404,7 +404,7 @@ void MainWindow::buildUi() {
     bottomActions->addWidget(m_thinking);sl->addLayout(bottomActions);
     connect(settingsButton,&QPushButton::clicked,this,&MainWindow::showSettings);
     connect(refresh,&QPushButton::clicked,this,&MainWindow::refreshModels);outer->addWidget(side);
-    auto *main=new QWidget(root);auto *ml=new QVBoxLayout(main);ml->setContentsMargins(28,18,28,20);ml->setSpacing(13);
+    auto *main=new QWidget(root);auto *ml=new QVBoxLayout(main);ml->setContentsMargins(18,10,18,12);ml->setSpacing(7);
     auto *top=new QHBoxLayout; m_provider=new QComboBox(main);m_provider->addItems(ProviderClient::providers());m_provider->hide(); auto *mlabel=new QLabel("MODEL",main);mlabel->setObjectName("Eyebrow");top->addWidget(mlabel);
     m_models=new QComboBox(main);m_models->setMinimumWidth(220);m_models->setMaximumWidth(360);m_models->setEditable(true);m_models->setInsertPolicy(QComboBox::NoInsert);m_models->setMaxVisibleItems(18);m_models->setPlaceholderText("Search or choose a model…");m_models->setToolTip("Search and select any discovered model. Eclipse Orbit routes requests to its provider automatically.");
     if (m_models->completer()) { m_models->completer()->setCaseSensitivity(Qt::CaseInsensitive); m_models->completer()->setFilterMode(Qt::MatchContains); m_models->completer()->setCompletionMode(QCompleter::PopupCompletion); }
@@ -425,7 +425,7 @@ void MainWindow::buildUi() {
     m_status=new QLabel("●  Connecting to Ollama…",main);m_status->setObjectName("Muted");m_status->setWordWrap(true);m_status->setMinimumHeight(22);ml->addLayout(top);ml->addWidget(m_status);
     m_chatTitle=new QLabel("New conversation",main);m_chatTitle->setStyleSheet("font-size:13px;font-weight:600;");ml->addWidget(m_chatTitle);
     m_scroll=new QScrollArea(main);m_scroll->setWidgetResizable(true);m_scroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-    m_messageHost=new QWidget(m_scroll);m_messageLayout=new QVBoxLayout(m_messageHost);m_messageLayout->setContentsMargins(0,8,0,8);m_messageLayout->setSpacing(14);m_messageLayout->addStretch();m_scroll->setWidget(m_messageHost);ml->addWidget(m_scroll,1);
+    m_messageHost=new QWidget(m_scroll);m_messageLayout=new QVBoxLayout(m_messageHost);m_messageLayout->setContentsMargins(0,4,0,4);m_messageLayout->setSpacing(8);m_messageLayout->addStretch();m_scroll->setWidget(m_messageHost);ml->addWidget(m_scroll,1);
     auto *composer=new QFrame(main);composer->setObjectName("Composer");auto *cl=new QVBoxLayout(composer);cl->setContentsMargins(12,10,12,10);
     m_input=new QTextEdit(composer);m_input->setPlaceholderText("Message your model…  (Ctrl+Enter to send)");m_input->setMinimumHeight(68);m_input->setMaximumHeight(140);m_input->setTabChangesFocus(false);cl->addWidget(m_input);
     auto *cb=new QHBoxLayout;
@@ -556,7 +556,7 @@ void MainWindow::installDownloadedUpdate(const QString &path, const QString &ver
 void MainWindow::addMessageCard(const QString &role,const QString &content,bool streaming,const QString &thinking) {
     auto *card=new QFrame(m_messageHost);card->setObjectName(role=="user"?"UserMessage":"AssistantMessage");
     card->setProperty("messageRole",role);
-    auto *layout=new QVBoxLayout(card);layout->setContentsMargins(18,14,18,14);layout->setSpacing(9);
+    auto *layout=new QVBoxLayout(card);layout->setContentsMargins(12,8,12,8);layout->setSpacing(4);
 
     // Keep the role and message actions together so long replies remain easy to scan.
     auto *header=new QHBoxLayout;header->setSpacing(8);
@@ -573,7 +573,7 @@ void MainWindow::addMessageCard(const QString &role,const QString &content,bool 
         auto *thinkingToggle=button("▸  Model thinking","Ghost",card);
         thinkingToggle->setStyleSheet("QPushButton{background:transparent;border:0;padding:3px 0;text-align:left;color:#58a6ff;font-size:11px;font-weight:700;} QPushButton:hover{color:#8bc4ff;}");
         layout->addWidget(thinkingToggle);
-        auto *tv=new QTextBrowser(card);tv->setReadOnly(true);tv->setOpenExternalLinks(true);setMarkdownContent(tv, thinking);tv->setMinimumHeight(24);tv->setMaximumHeight(180);tv->setVisible(false);tv->setFrameShape(QFrame::NoFrame);
+        auto *tv=new QTextBrowser(card);tv->document()->setDocumentMargin(0);tv->setReadOnly(true);tv->setOpenExternalLinks(true);setMarkdownContent(tv, thinking);tv->setMinimumHeight(24);tv->setMaximumHeight(180);tv->setVisible(false);tv->setFrameShape(QFrame::NoFrame);
         tv->setStyleSheet("QTextBrowser{background:transparent;border:0;padding:0;color:#8d9bb0;}");layout->addWidget(tv);thinkingView=tv;
         connect(thinkingToggle,&QPushButton::clicked,card,[thinkingToggle,tv](){
             const bool expand=!tv->isVisible();
@@ -582,7 +582,7 @@ void MainWindow::addMessageCard(const QString &role,const QString &content,bool 
         });
         if(streaming){m_streamThinkingLabel=thinkingToggle;}
     }
-    auto *view=new QTextBrowser(card);view->setReadOnly(true);view->setOpenExternalLinks(true);setMarkdownContent(view, content);view->setMinimumHeight(28);view->setFrameShape(QFrame::NoFrame);
+    auto *view=new QTextBrowser(card);view->document()->setDocumentMargin(0);view->setReadOnly(true);view->setOpenExternalLinks(true);setMarkdownContent(view, content);view->setMinimumHeight(28);view->setFrameShape(QFrame::NoFrame);
     view->setStyleSheet("QTextBrowser{background:transparent;border:0;padding:0;}");layout->addWidget(view);
     connect(copyButton,&QPushButton::clicked,card,[copyButton,view](){
         QApplication::clipboard()->setText(view->toPlainText());

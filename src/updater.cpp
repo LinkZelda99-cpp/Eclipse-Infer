@@ -113,7 +113,7 @@ void UpdateManager::downloadUpdate(const QUrl &url, const QString &version) {
             return;
         }
         const QString extension = m_downloadIsZip ? QStringLiteral("zip") : QStringLiteral("exe");
-        const QString path = QDir(tempDir).filePath(QStringLiteral("EclipseInfer-update-%1.%2").arg(m_downloadVersion, extension));
+        const QString path = QDir(tempDir).filePath(QStringLiteral("EclipseOrbit-update-%1.%2").arg(m_downloadVersion, extension));
         QFile file(path);
         if (!file.open(QIODevice::WriteOnly) || file.write(data) != data.size()) {
             file.close();

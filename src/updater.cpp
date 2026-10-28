@@ -14,7 +14,7 @@
 #include <QVersionNumber>
 
 namespace {
-const QUrl latestReleaseApi(QStringLiteral("https://api.github.com/repos/LinkZelda99-cpp/Eclipse-Infer/releases/latest"));
+const QUrl latestReleaseApi(QStringLiteral("https://api.github.com/repos/LinkZelda99-cpp/Eclipse-Orbit/releases/latest"));
 QString normalizedVersion(QString value) {
     value = value.trimmed();
     if (value.startsWith(QLatin1Char('v'), Qt::CaseInsensitive))

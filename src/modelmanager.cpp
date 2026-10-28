@@ -136,6 +136,41 @@ ModelManagerDialog::ModelManagerDialog(QWidget *parent) : QDialog(parent) {
     cloudLayout->addRow(QString{}, cloudButtons);
     root->addWidget(cloudGroup);
 
+    auto *configuredCloudModels = new QTreeWidget(this);
+    configuredCloudModels->setColumnCount(3);
+    configuredCloudModels->setHeaderLabels({QStringLiteral("Cloud provider"), QStringLiteral("API key"), QStringLiteral("Available models")});
+    configuredCloudModels->setRootIsDecorated(false);
+    configuredCloudModels->setMaximumHeight(170);
+    configuredCloudModels->header()->setSectionResizeMode(0, QHeaderView::ResizeToContents);
+    configuredCloudModels->header()->setSectionResizeMode(1, QHeaderView::ResizeToContents);
+    configuredCloudModels->header()->setSectionResizeMode(2, QHeaderView::Stretch);
+    root->addWidget(new QLabel(QStringLiteral("Configured cloud providers"), this));
+    root->addWidget(configuredCloudModels);
+
+    auto refreshConfiguredCloudModels = [configuredCloudModels]() {
+        configuredCloudModels->clear();
+        const QStringList providers = {QStringLiteral("OpenAI"), QStringLiteral("OpenRouter"), QStringLiteral("Groq"),
+            QStringLiteral("Together AI"), QStringLiteral("DeepSeek"), QStringLiteral("Mistral"),
+            QStringLiteral("Anthropic"), QStringLiteral("Google Gemini"), QStringLiteral("Custom OpenAI-compatible")};
+        QSettings settings;
+        for (const QString &provider : providers) {
+            const QString key = readProviderKey(provider);
+            const QStringList models = settings.value(QStringLiteral("providers/%1/cachedModels").arg(provider)).toStringList();
+            const QString endpoint = settings.value(QStringLiteral("providers/%1/endpoint").arg(provider)).toString();
+            if (key.isEmpty() && endpoint.isEmpty() && models.isEmpty()) continue;
+            auto *item = new QTreeWidgetItem(configuredCloudModels);
+            item->setText(0, provider);
+            item->setText(1, key.isEmpty() ? QStringLiteral("Not set") : QStringLiteral("Saved"));
+            item->setText(2, models.isEmpty() ? QStringLiteral("Refresh models from the home page") : models.join(QStringLiteral(", ")));
+            item->setToolTip(2, models.join(QStringLiteral("\\n")));
+        }
+        if (configuredCloudModels->topLevelItemCount() == 0) {
+            auto *item = new QTreeWidgetItem(configuredCloudModels);
+            item->setText(0, QStringLiteral("No cloud providers configured yet"));
+            item->setText(2, QStringLiteral("Choose a provider above and save its settings."));
+        }
+    };
+
     auto refreshCloudFields = [cloudProvider, cloudEndpoint, cloudKey, cloudHelp, openKeyHelp]() {
         const QString provider = cloudProvider->currentText();
         const QString defaultEndpoint =
@@ -173,6 +208,7 @@ ModelManagerDialog::ModelManagerDialog(QWidget *parent) : QDialog(parent) {
         settings.setValue(QStringLiteral("providers/%1/endpoint").arg(provider), endpoint);
         writeProviderKey(provider, cloudKey->text().trimmed());
         settings.setValue(QStringLiteral("provider"), provider);
+        refreshConfiguredCloudModels();
         QMessageBox::information(this, QStringLiteral("Provider saved"),
             QStringLiteral("%1 settings saved. Select this provider in the main model selector to load its available models.").arg(provider));
     });
@@ -183,8 +219,10 @@ ModelManagerDialog::ModelManagerDialog(QWidget *parent) : QDialog(parent) {
             QMessageBox::Yes | QMessageBox::Cancel, QMessageBox::Cancel) != QMessageBox::Yes) return;
         writeProviderKey(provider, {});
         cloudKey->clear();
+        refreshConfiguredCloudModels();
     });
     refreshCloudFields();
+    refreshConfiguredCloudModels();
 
     m_models = new QTreeWidget(this);
     m_models->setColumnCount(4);

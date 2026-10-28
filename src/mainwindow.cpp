@@ -921,8 +921,14 @@ void MainWindow::showSettings() {
     synthesisKey->setEchoMode(QLineEdit::Password);
     synthesisKey->setPlaceholderText("Key for voice generation");
     connect(synthesisProvider, &QComboBox::currentTextChanged, &dialog, [synthesisKey](const QString &name) { synthesisKey->setText(storedApiKey(QStringLiteral("Voice/") + name)); });
-    auto *voiceId = new QLineEdit(settings.value("voice/voiceId", "alloy").toString(), &dialog);
+    auto *voiceId = new QLineEdit(settings.value("voice/voiceId", synthesisProvider->currentText() == QStringLiteral("ElevenLabs") ? "21m00Tcm4TlvDq8ikWAM" : "alloy").toString(), &dialog);
     voiceId->setPlaceholderText("OpenAI voice name or ElevenLabs voice ID");
+    connect(synthesisProvider, &QComboBox::currentTextChanged, &dialog, [voiceId](const QString &name) {
+        if (name == QStringLiteral("ElevenLabs") && voiceId->text().trimmed() == QStringLiteral("alloy"))
+            voiceId->setText(QStringLiteral("21m00Tcm4TlvDq8ikWAM"));
+        else if (name == QStringLiteral("OpenAI") && voiceId->text().trimmed() == QStringLiteral("21m00Tcm4TlvDq8ikWAM"))
+            voiceId->setText(QStringLiteral("alloy"));
+    });
     auto *contextLength=new QSpinBox(&dialog);contextLength->setRange(2048,131072);contextLength->setSingleStep(2048);contextLength->setValue(settings.value("contextLength",8192).toInt());
     auto *historyLimit=new QComboBox(&dialog);historyLimit->addItem("10 conversations",10);historyLimit->addItem("20 conversations",20);historyLimit->addItem("30 conversations",30);
     int limitIndex=historyLimit->findData(settings.value("historyLimit",30));if(limitIndex>=0)historyLimit->setCurrentIndex(limitIndex);

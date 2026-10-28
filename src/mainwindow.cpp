@@ -20,6 +20,7 @@
 #include <QCompleter>
 #include <QFrame>
 #include <QGuiApplication>
+#include <QClipboard>
 #include <QHBoxLayout>
 #include <QJsonObject>
 #include <QLabel>

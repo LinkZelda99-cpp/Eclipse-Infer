@@ -509,7 +509,17 @@ void MainWindow::addMessageCard(const QString &role,const QString &content,bool 
     auto *card=new QFrame(m_messageHost);card->setObjectName(role=="user"?"UserMessage":"AssistantMessage");
     card->setProperty("messageRole",role);
     auto *layout=new QVBoxLayout(card);layout->setContentsMargins(18,14,18,14);layout->setSpacing(9);
-    auto *label=new QLabel((role=="user"?"YOU":"ECLIPSE INFER"),card);label->setStyleSheet(QString("font-size:10px;font-weight:800;letter-spacing:1px;color:%1;").arg(role=="user"?"#58a6ff":"#8d9bb0"));layout->addWidget(label);
+
+    // Keep the role and message actions together so long replies remain easy to scan.
+    auto *header=new QHBoxLayout;header->setSpacing(8);
+    auto *label=new QLabel((role=="user"?"YOU":"ECLIPSE INFER"),card);
+    label->setStyleSheet(QString("font-size:10px;font-weight:800;letter-spacing:1px;color:%1;").arg(role=="user"?"#58a6ff":"#8d9bb0"));
+    header->addWidget(label);header->addStretch();
+    auto *copyButton=button("Copy","MessageAction",card);
+    copyButton->setToolTip("Copy this message as text");
+    copyButton->setStyleSheet("QPushButton{background:transparent;border:1px solid transparent;border-radius:6px;padding:3px 7px;color:#8d9bb0;font-size:11px;} QPushButton:hover{background:rgba(128,128,128,0.12);border-color:rgba(128,128,128,0.25);}");
+    header->addWidget(copyButton);layout->addLayout(header);
+
     QPointer<QTextBrowser> thinkingView;
     if(role=="assistant"){
         auto *thinkingToggle=button("▸  Model thinking","Ghost",card);
@@ -526,6 +536,11 @@ void MainWindow::addMessageCard(const QString &role,const QString &content,bool 
     }
     auto *view=new QTextBrowser(card);view->setReadOnly(true);view->setOpenExternalLinks(true);setMarkdownContent(view, content);view->setMinimumHeight(28);view->setFrameShape(QFrame::NoFrame);
     view->setStyleSheet("QTextBrowser{background:transparent;border:0;padding:0;}");layout->addWidget(view);
+    connect(copyButton,&QPushButton::clicked,card,[copyButton,view](){
+        QApplication::clipboard()->setText(view->toPlainText());
+        copyButton->setText("Copied");
+        QTimer::singleShot(1200,copyButton,[copyButton](){if(copyButton)copyButton->setText("Copy");});
+    });
     m_messageLayout->insertWidget(m_messageLayout->count()-1,card);
     if(streaming){m_streamView=view;m_streamThinkingView=thinkingView;}
 }

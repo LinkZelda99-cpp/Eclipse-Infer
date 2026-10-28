@@ -130,7 +130,6 @@ void VoiceClient::stopRecordingAndTranscribe()
     filePart.setHeader(QNetworkRequest::ContentTypeHeader, QVariant(QStringLiteral("audio/wav")));
     filePart.setBody(wavData());
     multipart->append(filePart);
-    const bool elevenLabs = m_recognitionProvider == QStringLiteral("ElevenLabs");
     QNetworkRequest request(QUrl(elevenLabs ? QStringLiteral("https://api.elevenlabs.io/v1/speech-to-text") : QStringLiteral("https://api.openai.com/v1/audio/transcriptions")));
     if (elevenLabs) request.setRawHeader("xi-api-key", m_recognitionApiKey.toUtf8());
     else request.setRawHeader("Authorization", QByteArray("Bearer ") + m_recognitionApiKey.toUtf8());

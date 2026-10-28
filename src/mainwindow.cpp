@@ -918,80 +918,57 @@ void MainWindow::showSettings() {
     recognitionKey->setPlaceholderText("Key for speech recognition");
     connect(recognitionProvider, &QComboBox::currentTextChanged, &dialog, [recognitionKey](const QString &name) { recognitionKey->setText(storedApiKey(QStringLiteral("Voice/") + name)); });
     auto *synthesisProvider = new QComboBox(&dialog);
-    synthesisProvider->addItems({QStringLiteral("OpenAI"), QStringLiteral("ElevenLabs")});
+    synthesisProvider->addItems({QStringLiteral("Windows (local)"), QStringLiteral("OpenAI"), QStringLiteral("ElevenLabs")});
     synthesisProvider->setCurrentText(settings.value("voice/synthesisProvider", "OpenAI").toString());
     auto *synthesisKey = new QLineEdit(storedApiKey(QStringLiteral("Voice/") + synthesisProvider->currentText()), &dialog);
     synthesisKey->setEchoMode(QLineEdit::Password);
-    synthesisKey->setPlaceholderText("Key for voice generation");
-    connect(synthesisProvider, &QComboBox::currentTextChanged, &dialog, [synthesisKey](const QString &name) { synthesisKey->setText(storedApiKey(QStringLiteral("Voice/") + name)); });
-    auto *voiceId = new QLineEdit(settings.value("voice/voiceId", synthesisProvider->currentText() == QStringLiteral("ElevenLabs") ? "21m00Tcm4TlvDq8ikWAM" : "alloy").toString(), &dialog);
-    voiceId->setPlaceholderText("Selected voice ID");
-    auto *browseVoices = button("Browse and preview voices…", "Secondary", &dialog);
-    connect(browseVoices, &QPushButton::clicked, &dialog, [this, &dialog, synthesisProvider, synthesisKey, voiceId]() {
-        QDialog browser(&dialog);
-        browser.setWindowTitle("Voice Browser");
-        browser.setMinimumWidth(440);
-        auto *browserLayout = new QVBoxLayout(&browser);
-        auto *description = new QLabel("Choose a voice and preview how it sounds. OpenAI voices are built in; ElevenLabs voices are loaded from your account.", &browser);
-        description->setWordWrap(true);
-        browserLayout->addWidget(description);
-        auto *voiceList = new QComboBox(&browser);
-        voiceList->setMinimumWidth(300);
-        browserLayout->addWidget(voiceList);
-        auto *status = new QLabel("Loading voices…", &browser);
-        status->setWordWrap(true);
-        browserLayout->addWidget(status);
-        auto *actions = new QHBoxLayout;
-        auto *refresh = button("Refresh", "Secondary", &browser);
-        auto *preview = button("Preview voice", "Primary", &browser);
-        auto *select = button("Use this voice", "Primary", &browser);
-        auto *cancel = button("Cancel", "Ghost", &browser);
-        actions->addWidget(refresh);
-        actions->addWidget(preview);
-        actions->addWidget(select);
-        actions->addWidget(cancel);
-        browserLayout->addLayout(actions);
-        auto loadVoices = [this, voiceList, status, synthesisProvider, synthesisKey]() {
-            voiceList->clear();
-            status->setText("Loading voices…");
-            m_voiceClient.fetchVoices(synthesisProvider->currentText(), synthesisKey->text().trimmed());
-        };
-        connect(&m_voiceClient, &VoiceClient::voiceListReady, &browser, [&browser, voiceList, status, voiceId](const QStringList &names, const QStringList &ids) {
-            voiceList->clear();
-            for (qsizetype i = 0; i < qMin(names.size(), ids.size()); ++i)
-                voiceList->addItem(names.at(i), ids.at(i));
-            const int selected = voiceList->findData(voiceId->text().trimmed());
-            if (selected >= 0) voiceList->setCurrentIndex(selected);
-            status->setText(QStringLiteral("%1 voices available. Select one to preview it.").arg(voiceList->count()));
-        });
-        connect(&m_voiceClient, &VoiceClient::voiceListError, &browser, [status](const QString &message) { status->setText(message); });
-        connect(refresh, &QPushButton::clicked, &browser, loadVoices);
-        connect(preview, &QPushButton::clicked, &browser, [this, synthesisProvider, synthesisKey, voiceList, status]() {
-            if (voiceList->currentData().toString().isEmpty()) {
-                status->setText("Choose a voice first.");
-                return;
-            }
-            status->setText("Generating voice preview…");
-            m_voiceClient.previewVoice(synthesisProvider->currentText(), synthesisKey->text().trimmed(), voiceList->currentData().toString());
-        });
-        connect(select, &QPushButton::clicked, &browser, [&browser, voiceList, voiceId, status]() {
-            if (voiceList->currentData().toString().isEmpty()) {
-                status->setText("Choose a voice first.");
-                return;
-            }
-            voiceId->setText(voiceList->currentData().toString());
-            browser.accept();
-        });
-        connect(cancel, &QPushButton::clicked, &browser, &QDialog::reject);
-        connect(synthesisProvider, &QComboBox::currentTextChanged, &browser, [loadVoices](const QString &) { loadVoices(); });
-        loadVoices();
-        if (browser.exec() == QDialog::Accepted) status->setText("Voice selected.");
+    synthesisKey->setPlaceholderText("Cloud API key (not needed for Windows voices)");
+    synthesisKey->setEnabled(synthesisProvider->currentText() != QStringLiteral("Windows (local)"));
+    connect(synthesisProvider, &QComboBox::currentTextChanged, &dialog, [synthesisKey](const QString &name) {
+        synthesisKey->setText(storedApiKey(QStringLiteral("Voice/") + name));
+        synthesisKey->setEnabled(name != QStringLiteral("Windows (local)"));
     });
+    auto *voiceId = new QComboBox(&dialog);
+    voiceId->setEditable(false);
+    voiceId->setMinimumWidth(260);
+    voiceId->setToolTip("Choose an installed Windows voice or a cloud voice.");
+    const QString savedVoiceId = settings.value("voice/voiceId", synthesisProvider->currentText() == QStringLiteral("ElevenLabs") ? "21m00Tcm4TlvDq8ikWAM" : "alloy").toString();
+    voiceId->setProperty("savedVoiceId", savedVoiceId);
+    auto *voiceStatus = new QLabel("Choose a provider to load available voices.", &dialog);
+    voiceStatus->setWordWrap(true);
+    auto *refreshVoices = button("Refresh voices", "Secondary", &dialog);
+    auto *previewVoice = button("Preview", "Primary", &dialog);
+    auto loadVoices = [this, synthesisProvider, synthesisKey, voiceId, voiceStatus]() {
+        voiceId->clear();
+        voiceStatus->setText("Loading voices…");
+        m_voiceClient.fetchVoices(synthesisProvider->currentText(), synthesisKey->text().trimmed());
+    };
+    connect(&m_voiceClient, &VoiceClient::voiceListReady, &dialog, [voiceId, voiceStatus](const QStringList &names, const QStringList &ids) {
+        const QString saved = voiceId->property("savedVoiceId").toString();
+        voiceId->clear();
+        for (qsizetype i = 0; i < qMin(names.size(), ids.size()); ++i) voiceId->addItem(names.at(i), ids.at(i));
+        const int selected = voiceId->findData(saved);
+        if (selected >= 0) voiceId->setCurrentIndex(selected);
+        else if (voiceId->count() > 0) voiceId->setCurrentIndex(0);
+        voiceStatus->setText(QStringLiteral("%1 voice(s) available.").arg(voiceId->count()));
+    });
+    connect(&m_voiceClient, &VoiceClient::voiceListError, &dialog, [voiceStatus](const QString &message) { voiceStatus->setText(message); });
+    connect(refreshVoices, &QPushButton::clicked, &dialog, loadVoices);
+    connect(synthesisProvider, &QComboBox::currentTextChanged, &dialog, [loadVoices](const QString &) { loadVoices(); });
+    connect(previewVoice, &QPushButton::clicked, &dialog, [this, synthesisProvider, synthesisKey, voiceId, voiceStatus]() {
+        if (voiceId->currentData().toString().isEmpty()) {
+            voiceStatus->setText("Choose a voice first.");
+            return;
+        }
+        voiceStatus->setText("Playing preview…");
+        m_voiceClient.previewVoice(synthesisProvider->currentText(), synthesisKey->text().trimmed(), voiceId->currentData().toString());
+    });
+    loadVoices();
     auto *contextLength=new QSpinBox(&dialog);contextLength->setRange(2048,131072);contextLength->setSingleStep(2048);contextLength->setValue(settings.value("contextLength",8192).toInt());
     auto *historyLimit=new QComboBox(&dialog);historyLimit->addItem("10 conversations",10);historyLimit->addItem("20 conversations",20);historyLimit->addItem("30 conversations",30);
     int limitIndex=historyLimit->findData(settings.value("historyLimit",30));if(limitIndex>=0)historyLimit->setCurrentIndex(limitIndex);
     auto *clearHistory=button("Delete all saved conversations","", &dialog);
-    form->addRow("Appearance",theme);form->addRow("Chat provider",provider);form->addRow("Chat API endpoint",endpoint);form->addRow("Chat provider API key",apiKey);form->addRow("Speech recognition provider",recognitionProvider);form->addRow("Speech recognition API key",recognitionKey);form->addRow("Voice generation provider",synthesisProvider);form->addRow("Voice generation API key",synthesisKey);form->addRow("Selected voice",voiceId);form->addRow("",browseVoices);form->addRow("Context window (tokens)",contextLength);form->addRow("Keep recent chats",historyLimit);layout->addLayout(form);
+    form->addRow("Appearance",theme);form->addRow("Chat provider",provider);form->addRow("Chat API endpoint",endpoint);form->addRow("Chat provider API key",apiKey);form->addRow("Speech recognition provider",recognitionProvider);form->addRow("Speech recognition API key",recognitionKey);form->addRow("Voice generation provider",synthesisProvider);form->addRow("Voice generation API key",synthesisKey);form->addRow("Voice",voiceId);form->addRow("",refreshVoices);form->addRow("",previewVoice);form->addRow("",voiceStatus);form->addRow("Context window (tokens)",contextLength);form->addRow("Keep recent chats",historyLimit);layout->addLayout(form);
     auto *privacy=new QLabel("Chats and preferences are stored locally. Prompts are sent to the selected provider; cloud providers receive prompts over the internet.",&dialog);privacy->setWordWrap(true);privacy->setObjectName("Muted");layout->addWidget(privacy);layout->addWidget(clearHistory);
     auto *buttons=new QDialogButtonBox(QDialogButtonBox::Save|QDialogButtonBox::Cancel,&dialog);layout->addWidget(buttons);
     connect(clearHistory,&QPushButton::clicked,&dialog,[this,&dialog](){if(QMessageBox::question(&dialog,"Delete saved chats","Permanently delete all saved conversation history?")==QMessageBox::Yes){QSettings s;const auto ids=s.value("conversationIds").toStringList();for(const auto &id:ids)s.remove("conversations/"+id);s.remove("conversationIds");m_historyIds.clear();rebuildHistory();}});
@@ -1006,8 +983,8 @@ void MainWindow::showSettings() {
         m_voiceClient.setRecognitionProvider(recognitionProvider->currentText(), recognitionKey->text().trimmed());
         s.setValue("voice/synthesisProvider", synthesisProvider->currentText());
         storeApiKey(QStringLiteral("Voice/") + synthesisProvider->currentText(), synthesisKey->text().trimmed());
-        s.setValue("voice/voiceId", voiceId->text().trimmed());
-        m_voiceClient.setSynthesisProvider(synthesisProvider->currentText(), synthesisKey->text().trimmed(), voiceId->text().trimmed());
+        s.setValue("voice/voiceId", voiceId->currentData().toString());
+        m_voiceClient.setSynthesisProvider(synthesisProvider->currentText(), synthesisKey->text().trimmed(), voiceId->currentData().toString());
         { const QSignalBlocker blocker(m_provider); m_provider->setCurrentText(provider->currentText()); }
         m_providerClient.configure(provider->currentText(),endpoint->text().trimmed(),apiKey->text().trimmed());
         s.setValue("theme",theme->currentText());s.setValue("contextLength",contextLength->value());if(m_contextLength)m_contextLength->setValue(contextLength->value());s.setValue("historyLimit",historyLimit->currentData().toInt());

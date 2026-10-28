@@ -16,7 +16,8 @@ class VoiceClient final : public QObject {
     Q_OBJECT
 public:
     explicit VoiceClient(QObject *parent = nullptr);
-    void setApiKey(const QString &key);
+    void setRecognitionProvider(const QString &provider, const QString &apiKey);
+    void setSynthesisProvider(const QString &provider, const QString &apiKey, const QString &voiceId);
     bool isRecording() const;
     void startRecording();
     void stopRecordingAndTranscribe();
@@ -32,7 +33,11 @@ signals:
 private:
     QByteArray wavData() const;
     void appendWavHeader(QByteArray &wav) const;
-    QString m_apiKey;
+    QString m_recognitionProvider{"OpenAI"};
+    QString m_synthesisProvider{"OpenAI"};
+    QString m_recognitionApiKey;
+    QString m_synthesisApiKey;
+    QString m_voiceId{"alloy"};
     QAudioSource *m_audioSource{};
     QIODevice *m_audioInput{};
     QAudioFormat m_format;

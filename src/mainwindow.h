@@ -1,5 +1,6 @@
 #pragma once
 #include "providerclient.h"
+#include "voiceclient.h"
 #include <QJsonArray>
 #include <QMainWindow>
 #include <QCloseEvent>
@@ -21,6 +22,8 @@ private:
     void refreshModels();
     void sendMessage();
     void attachFiles();
+    void toggleVoiceRecording();
+    void readLastResponseAloud();
     void addMessageCard(const QString &role, const QString &content, bool streaming = false, const QString &thinking = QString{});
     void newChat();
     void rebuildHistory();
@@ -33,9 +36,10 @@ private:
     void installDownloadedUpdate(const QString &path, const QString &version);
     QJsonArray apiMessages() const;
     ProviderClient m_providerClient;
+    VoiceClient m_voiceClient;
     UpdateManager *m_updateManager{};
     QSystemTrayIcon *m_trayIcon{};
-    QComboBox *m_provider{}; QComboBox *m_models{}; QTextEdit *m_input{}; QPushButton *m_send{}; QPushButton *m_codeModeButton{}; QPushButton *m_attachButton{};
+    QComboBox *m_provider{}; QComboBox *m_models{}; QTextEdit *m_input{}; QPushButton *m_send{}; QPushButton *m_codeModeButton{}; QPushButton *m_attachButton{}; QPushButton *m_voiceButton{}; QPushButton *m_readAloudButton{};
     QStringList m_pendingAttachments;
     QLabel *m_status{}; QLabel *m_chatTitle{}; QLabel *m_logoLabel{}; QPointer<QLabel> m_welcomeLogo;
     QScrollArea *m_scroll{}; QWidget *m_messageHost{}; QVBoxLayout *m_messageLayout{};

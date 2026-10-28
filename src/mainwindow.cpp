@@ -464,14 +464,14 @@ void MainWindow::installDownloadedUpdate(const QString &path, const QString &ver
         return;
     }
     const QString scriptPath = QDir(QStandardPaths::writableLocation(QStandardPaths::TempLocation))
-        .filePath("EclipseInfer-install-update.ps1");
+        .filePath("EclipseOrbit-install-update.ps1");
     auto psQuote = [](QString value) {
         value.replace("'", "''");
         return QString("'") + value + QString("'");
     };
     const QString source = QDir::toNativeSeparators(path);
     const QString targetDir = QDir::toNativeSeparators(executableInfo.dir().absolutePath());
-    const QString staging = QString("EclipseInfer-update-%1").arg(version);
+    const QString staging = QString("EclipseOrbit-update-%1").arg(version);
     const QString body = QStringLiteral(
         "$ErrorActionPreference = 'Stop'\r\n"
         "Start-Sleep -Seconds 3\r\n"
@@ -483,8 +483,8 @@ void MainWindow::installDownloadedUpdate(const QString &path, const QString &ver
         "  if ($archive.EndsWith('.zip', [System.StringComparison]::OrdinalIgnoreCase)) {\r\n"
         "    Expand-Archive -LiteralPath $archive -DestinationPath $tempDir -Force\r\n"
         "    Copy-Item -Path (Join-Path $tempDir '*') -Destination $targetDir -Recurse -Force\r\n"
-        "  } else { Copy-Item -LiteralPath $archive -Destination (Join-Path $targetDir 'EclipseInfer.exe') -Force }\r\n"
-        "  Start-Process (Join-Path $targetDir 'EclipseInfer.exe')\r\n"
+        "  } else { Copy-Item -LiteralPath $archive -Destination (Join-Path $targetDir 'EclipseOrbit.exe') -Force }\r\n"
+        "  Start-Process (Join-Path $targetDir 'EclipseOrbit.exe')\r\n"
         "  Remove-Item $archive -Force -ErrorAction SilentlyContinue\r\n"
         "  Remove-Item $tempDir -Recurse -Force -ErrorAction SilentlyContinue\r\n"
         "} catch {\r\n"

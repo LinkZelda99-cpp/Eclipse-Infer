@@ -173,7 +173,7 @@ void ProviderClient::chat(const QString &model, const QJsonArray &messages, bool
     }
     if (m_provider == "OpenRouter") {
         request.setRawHeader("HTTP-Referer", "https://austinmcdonald.dev");
-        request.setRawHeader("X-Title", "Eclipse Infer");
+        request.setRawHeader("X-Title", "Eclipse Orbit");
     }
     m_buffer.clear();
     m_hadError = false;

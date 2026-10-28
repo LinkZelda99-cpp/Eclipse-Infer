@@ -4,7 +4,18 @@
 #include <QNetworkRequest>
 #include <QUrl>
 
-ProviderClient::ProviderClient(QObject *parent) : QObject(parent) {}
+ProviderClient::ProviderClient(QObject *parent) : QObject(parent)
+{
+    m_inactivityTimer.setSingleShot(true);
+    m_inactivityTimer.setInterval(60000);
+    connect(&m_inactivityTimer, &QTimer::timeout, this, [this]() {
+        if (!m_reply) return;
+        m_timedOut = true;
+        auto *reply = m_reply;
+        emit errorOccurred(QStringLiteral("%1 stopped sending response data for 60 seconds. Check the API key, provider quota, model access, and network connection, then retry.").arg(m_provider));
+        reply->abort();
+    });
+}
 
 QStringList ProviderClient::providers()
 {
@@ -177,15 +188,21 @@ void ProviderClient::chat(const QString &model, const QJsonArray &messages, bool
     }
     m_buffer.clear();
     m_hadError = false;
+    m_timedOut = false;
     m_reply = m_network.post(request, QJsonDocument(payload).toJson(QJsonDocument::Compact));
-    connect(m_reply, &QIODevice::readyRead, this, &ProviderClient::readStream);
+    m_inactivityTimer.start();
+    connect(m_reply, &QIODevice::readyRead, this, [this]() {
+        if (m_reply) m_inactivityTimer.start();
+        readStream();
+    });
     connect(m_reply, &QNetworkReply::finished, this, [this]() {
         if (!m_reply) return;
+        m_inactivityTimer.stop();
         readStream();
         if (!m_buffer.trimmed().isEmpty()) processLine(m_buffer.trimmed());
         auto *reply = m_reply;
         m_reply = nullptr;
-        if (reply->error() != QNetworkReply::NoError && !m_hadError)
+        if (reply->error() != QNetworkReply::NoError && !m_hadError && !m_timedOut)
             emit errorOccurred(QString("Request failed: %1").arg(reply->errorString()));
         reply->deleteLater();
         emit chatFinished();
@@ -195,7 +212,7 @@ void ProviderClient::chat(const QString &model, const QJsonArray &messages, bool
     });
 }
 
-void ProviderClient::cancel() { if (m_reply) m_reply->abort(); }
+void ProviderClient::cancel() { m_inactivityTimer.stop(); if (m_reply) m_reply->abort(); }
 
 void ProviderClient::readStream()
 {

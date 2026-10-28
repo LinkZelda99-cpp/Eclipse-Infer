@@ -11,6 +11,7 @@
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
 #include <QPointer>
+#include <QProcess>
 
 class VoiceClient final : public QObject {
     Q_OBJECT
@@ -49,6 +50,7 @@ private:
     QNetworkAccessManager m_network;
     QPointer<QNetworkReply> m_request;
     QPointer<QNetworkReply> m_voiceListRequest;
+    QProcess m_localSpeechProcess;
     QMediaPlayer m_player;
     QAudioOutput m_audioOutput;
     QBuffer m_playbackBuffer;

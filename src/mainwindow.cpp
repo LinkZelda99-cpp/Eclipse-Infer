@@ -464,12 +464,56 @@ void MainWindow::buildUi() {
     connect(refresh,&QPushButton::clicked,this,&MainWindow::refreshModels);outer->addWidget(side);
     auto *main=new QWidget(root);auto *ml=new QVBoxLayout(main);ml->setContentsMargins(18,10,18,12);ml->setSpacing(7);
     auto *top=new QHBoxLayout; m_provider=new QComboBox(main);m_provider->addItems(ProviderClient::providers());m_provider->hide(); auto *mlabel=new QLabel("MODEL",main);mlabel->setObjectName("Eyebrow");top->addWidget(mlabel);
-    m_models=new QComboBox(main);m_models->setMinimumWidth(220);m_models->setMaximumWidth(360);m_models->setEditable(true);m_models->setInsertPolicy(QComboBox::NoInsert);m_models->setMaxVisibleItems(18);m_models->setPlaceholderText("Search or choose a model…");m_models->setToolTip("Search and select any discovered model. Eclipse Orbit routes requests to its provider automatically.");
-    if (m_models->completer()) { m_models->completer()->setCaseSensitivity(Qt::CaseInsensitive); m_models->completer()->setFilterMode(Qt::MatchContains); m_models->completer()->setCompletionMode(QCompleter::PopupCompletion); }
+    // Keep the model catalog as the source of truth, but expose a provider-first
+    // menu so the popup never dumps every provider's models into one long list.
+    m_models=new QComboBox(main);
+    m_models->hide();
+    m_modelSwitcher=button("Choose model  ▾","ModelSwitcher",main);
+    m_modelSwitcher->setMinimumWidth(220);
+    m_modelSwitcher->setMaximumWidth(360);
+    m_modelSwitcher->setToolTip("Hover a provider to see its available models.");
+    connect(m_modelSwitcher,&QPushButton::clicked,this,[this]() {
+        QMenu menu(m_modelSwitcher);
+        QSettings settings;
+        const bool localOnly=settings.value("localOnlyMode",false).toBool();
+        for(const QString &providerName : ProviderClient::providers()) {
+            const bool localProvider=providerName=="Ollama (local)" || providerName=="LM Studio (local)" ||
+                providerName=="llama.cpp (local)" || providerName=="vLLM (local)" || providerName=="LocalAI";
+            if(localOnly && !localProvider) continue;
+            QStringList availableModels;
+            for(int i=0;i<m_models->count();++i) {
+                if(m_models->itemData(i,Qt::UserRole).toString()==providerName) {
+                    const QString modelName=m_models->itemData(i,Qt::UserRole+1).toString();
+                    if(!modelName.isEmpty()) availableModels.append(modelName);
+                }
+            }
+            if(availableModels.isEmpty()) continue;
+            QMenu *providerMenu=menu.addMenu(providerName);
+            for(const QString &modelName : availableModels) {
+                QAction *action=providerMenu->addAction(modelName);
+                action->setCheckable(true);
+                action->setChecked(m_models->currentData(Qt::UserRole).toString()==providerName &&
+                                   m_models->currentData(Qt::UserRole+1).toString()==modelName);
+                connect(action,&QAction::triggered,this,[this,providerName,modelName]() {
+                    for(int i=0;i<m_models->count();++i) {
+                        if(m_models->itemData(i,Qt::UserRole).toString()==providerName &&
+                           m_models->itemData(i,Qt::UserRole+1).toString()==modelName) {
+                            m_models->setCurrentIndex(i);
+                            break;
+                        }
+                    }
+                });
+            }
+        }
+        if(menu.isEmpty()) menu.addAction("No models discovered yet")->setEnabled(false);
+        menu.exec(m_modelSwitcher->mapToGlobal(QPoint(0,m_modelSwitcher->height())));
+    });
     connect(m_models,qOverload<int>(&QComboBox::currentIndexChanged),this,[this](int index){
         if(index<0 || !m_models->itemData(index,Qt::UserRole).isValid()) return;
         const QString provider=m_models->itemData(index,Qt::UserRole).toString();
         const QString model=m_models->itemData(index,Qt::UserRole+1).toString();
+        if(model.isEmpty()) return;
+        m_modelSwitcher->setText(QString("%1  ▾").arg(model));
         QSettings().setValue(QString("defaultModel/%1").arg(provider),model);
         if(m_provider->currentText()!=provider) {
             const QSignalBlocker providerBlocker(m_provider);
@@ -479,7 +523,7 @@ void MainWindow::buildUi() {
             m_status->setText(QString("●  Selected %1").arg(provider));
         }
     });
-    top->addWidget(m_models);
+    top->addWidget(m_modelSwitcher);
     m_status=new QLabel("●  Connecting to Ollama…",main);m_status->setObjectName("Muted");m_status->setWordWrap(true);m_status->setMinimumHeight(22);ml->addLayout(top);ml->addWidget(m_status);
     m_chatTitle=new QLabel("New conversation",main);m_chatTitle->setStyleSheet("font-size:13px;font-weight:600;");ml->addWidget(m_chatTitle);
     m_scroll=new QScrollArea(main);m_scroll->setWidgetResizable(true);m_scroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);

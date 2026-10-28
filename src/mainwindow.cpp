@@ -227,13 +227,19 @@ MainWindow::MainWindow(QWidget *parent):QMainWindow(parent) {
         const QSignalBlocker modelBlocker(m_models);
         m_models->clear();
         const bool localOnly = settings.value("localOnlyMode", false).toBool();
-        for(const QString &providerName : ProviderClient::providers()) {
+        QStringList providerNames = ProviderClient::providers();
+        providerNames.sort(Qt::CaseInsensitive);
+        for(const QString &providerName : providerNames) {
             const bool localProvider = providerName == "Ollama (local)" || providerName == "LM Studio (local)" ||
                 providerName == "llama.cpp (local)" || providerName == "vLLM (local)" || providerName == "LocalAI";
             if (localOnly && !localProvider) continue;
-            const QStringList providerModels=settings.value(QString("providers/%1/cachedModels").arg(providerName)).toStringList();
+            QStringList providerModels = settings.value(QString("providers/%1/cachedModels").arg(providerName)).toStringList();
+            providerModels.removeDuplicates();
+            providerModels.sort(Qt::CaseInsensitive);
             for(const QString &modelName : providerModels) {
-                m_models->addItem(QString("%1  ·  %2").arg(modelName,providerName));
+                // Provider-first labels keep the unified catalog easy to scan and naturally
+                // group every provider's models together in alphabetical provider order.
+                m_models->addItem(QString("%1  ·  %2").arg(providerName, modelName));
                 const int row=m_models->count()-1;
                 m_models->setItemData(row,providerName,Qt::UserRole);
                 m_models->setItemData(row,modelName,Qt::UserRole+1);

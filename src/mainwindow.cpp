@@ -577,10 +577,10 @@ void MainWindow::refreshModels(){
             provider == "llama.cpp (local)" || provider == "vLLM (local)" || provider == "LocalAI";
         if (localOnly && !local) continue;
         if (!local && storedApiKey(provider).isEmpty()) continue;
-        m_providerClient.configure(provider, providerEndpoint(provider), storedApiKey(provider));
-        m_providerClient.refreshModels();
+        // Discovery is independent of the active chat configuration. Do not
+        // reconfigure the chat client while enumerating provider catalogs.
+        m_providerClient.refreshModels(provider, providerEndpoint(provider), storedApiKey(provider));
     }
-    m_providerClient.configure(activeProvider, providerEndpoint(activeProvider), storedApiKey(activeProvider));
 }
 void MainWindow::showModelManager(){ ModelManagerDialog dialog(this); dialog.exec(); refreshModels(); }
 void MainWindow::checkForUpdates(bool userInitiated) {

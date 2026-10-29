@@ -5,6 +5,7 @@
 #include <QNetworkReply>
 #include <QByteArray>
 #include <QPointer>
+#include <QTimer>
 
 class QComboBox;
 class QLabel;
@@ -31,6 +32,7 @@ private:
 
     QNetworkAccessManager m_network;
     QPointer<QNetworkReply> m_pullReply;
+    QTimer m_pullInactivityTimer;
     QByteArray m_pullBuffer;
     QTreeWidget *m_models{};
     QLineEdit *m_modelName{};
@@ -43,4 +45,5 @@ private:
     QPushButton *m_renameButton{};
     QPushButton *m_refreshButton{};
     bool m_pullSucceeded{false};
+    bool m_pullTimedOut{false};
 };

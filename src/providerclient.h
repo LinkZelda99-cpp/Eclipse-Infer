@@ -4,6 +4,7 @@
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
 #include <QStringList>
+#include <QTimer>
 
 class ProviderClient final : public QObject {
     Q_OBJECT
@@ -11,6 +12,7 @@ public:
     explicit ProviderClient(QObject *parent = nullptr);
     void configure(const QString &provider, const QString &endpoint, const QString &apiKey);
     void refreshModels();
+    void refreshModels(const QString &provider, const QString &endpoint, const QString &apiKey);
     void chat(const QString &model, const QJsonArray &messages, bool thinking, double temperature, int contextLength);
     void cancel();
     static QString defaultEndpoint(const QString &provider);
@@ -28,10 +30,13 @@ private:
     void processLine(const QByteArray &line);
     QString apiUrl(const QString &path) const;
     QString m_provider{"Ollama (local)"};
+    QString m_requestProvider;
     QString m_endpoint{"http://127.0.0.1:11434"};
     QString m_apiKey;
     QNetworkAccessManager m_network;
     QNetworkReply *m_reply{nullptr};
     QByteArray m_buffer;
     bool m_hadError{false};
+    QTimer m_inactivityTimer;
+    bool m_timedOut{false};
 };

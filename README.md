@@ -9,6 +9,7 @@ A C++20 / Qt 6 desktop AI client for local models and hosted model APIs.
 - Streaming chat responses
 - Configurable API endpoints and credentials in Settings (provider selection is only needed for initial setup)
 - Local Ollama model discovery and chat
+- Optional Local-only mode that filters chat model discovery/selection to local runtimes and blocks hosted chat requests
 - OpenAI-compatible API support for OpenAI, OpenRouter, Groq, Together AI, DeepSeek, Mistral, LM Studio, llama.cpp server, vLLM, LocalAI, and compatible custom endpoints
 - Native streaming adapters for Anthropic Messages and Google Gemini generate-content APIs
 - Unified model picker with automatic provider routing, per-provider endpoints and credentials, remembered selections, and cached model lists
@@ -26,6 +27,12 @@ A C++20 / Qt 6 desktop AI client for local models and hosted model APIs.
 - Attachments are imported locally into the message; each attachment is currently limited to 25 MiB and combined inlined text to 200,000 characters; archive text is capped separately
 
 Provider APIs differ in their supported parameters and model capabilities. Some providers or models may not support reasoning controls, and custom servers may implement only part of the OpenAI-compatible API. Native vision input for images, audio/video file understanding, tools, and provider-specific advanced features are not yet implemented. Image files are not yet sent as visual inputs to chat models. Cloud voice features require the selected provider API key; Windows local text-to-speech requires no key or internet but relies on installed Windows speech voices and Windows PowerShell/System.Speech. Speech recognition and voice generation providers are configured independently. OpenAI uses built-in voice names; ElevenLabs uses a voice ID. File support depends on the format, optional local utilities, and the selected model/provider. Model downloads, rename, and deletion are supported for Ollama only; hosted provider models are managed by their respective services.
+
+## Local-only chat mode
+
+Open **Settings** and enable **Local-only mode (block hosted chat models)** to restrict chat inference to local runtimes such as Ollama, LM Studio, llama.cpp, vLLM, and LocalAI. Hosted models are removed from the model picker, and the send path checks the selected provider again before sending. If no local model is available, start/configure a local runtime and refresh models; Orbit does not automatically fall back to a hosted model. This setting applies to chat inference, not independently configured cloud speech recognition, text-to-speech, update checks, or other network features. It is not an OS-level firewall.
+
+The local coding-agent architecture and implementation roadmap is documented in [`docs/LOCAL_CODING_AGENT.md`](docs/LOCAL_CODING_AGENT.md). The full supervised coding agent (workspace tools, diff approvals, build/test execution, and computer use) is a staged implementation, not yet available in this release.
 
 ## Provider setup
 

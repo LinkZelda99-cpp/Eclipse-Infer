@@ -52,6 +52,8 @@
 #include <QJsonDocument>
 #include <QVBoxLayout>
 #include <QSignalBlocker>
+#include <QStandardItemModel>
+#include <QStandardItem>
 #ifdef Q_OS_WIN
 #include <windows.h>
 #include <wincred.h>
@@ -226,13 +228,26 @@ MainWindow::MainWindow(QWidget *parent):QMainWindow(parent) {
         const QString oldModel=m_models->currentData(Qt::UserRole+1).toString();
         const QSignalBlocker modelBlocker(m_models);
         m_models->clear();
-        for(const QString &providerName : ProviderClient::providers()) {
-            const QStringList providerModels=settings.value(QString("providers/%1/cachedModels").arg(providerName)).toStringList();
-            for(const QString &modelName : providerModels) {
-                m_models->addItem(QString("%1  ·  %2").arg(modelName,providerName));
-                const int row=m_models->count()-1;
-                m_models->setItemData(row,providerName,Qt::UserRole);
-                m_models->setItemData(row,modelName,Qt::UserRole+1);
+        const bool localOnly = settings.value("localOnlyMode", false).toBool();
+        QStringList providerNames = ProviderClient::providers();
+        providerNames.sort(Qt::CaseInsensitive);
+        for(const QString &providerName : providerNames) {
+            const bool localProvider = providerName == "Ollama (local)" || providerName == "LM Studio (local)" ||
+                providerName == "llama.cpp (local)" || providerName == "vLLM (local)" || providerName == "LocalAI";
+            if (localOnly && !localProvider) continue;
+            QStringList providerModels = settings.value(QString("providers/%1/cachedModels").arg(providerName)).toStringList();
+            providerModels.removeDuplicates();
+            providerModels.sort(Qt::CaseInsensitive);
+            if (providerModels.isEmpty()) continue;
+            // The combo is the internal catalog, not the visible provider menu.
+            // Every selectable row must contain a real model ID. Provider grouping
+            // belongs exclusively in the model switcher's QMenu hierarchy.
+            for (const QString &modelName : providerModels) {
+                m_models->addItem(modelName);
+                const int row = m_models->count() - 1;
+                m_models->setItemData(row, providerName, Qt::UserRole);
+                m_models->setItemData(row, modelName, Qt::UserRole + 1);
+                m_models->setItemData(row, QStringLiteral("%1 model from %2").arg(modelName, providerName), Qt::ToolTipRole);
             }
         }
         if(m_models->count()==0) m_models->addItem("Discovering models…");
@@ -439,12 +454,59 @@ void MainWindow::buildUi() {
     connect(refresh,&QPushButton::clicked,this,&MainWindow::refreshModels);outer->addWidget(side);
     auto *main=new QWidget(root);auto *ml=new QVBoxLayout(main);ml->setContentsMargins(18,10,18,12);ml->setSpacing(7);
     auto *top=new QHBoxLayout; m_provider=new QComboBox(main);m_provider->addItems(ProviderClient::providers());m_provider->hide(); auto *mlabel=new QLabel("MODEL",main);mlabel->setObjectName("Eyebrow");top->addWidget(mlabel);
-    m_models=new QComboBox(main);m_models->setMinimumWidth(220);m_models->setMaximumWidth(360);m_models->setEditable(true);m_models->setInsertPolicy(QComboBox::NoInsert);m_models->setMaxVisibleItems(18);m_models->setPlaceholderText("Search or choose a model…");m_models->setToolTip("Search and select any discovered model. Eclipse Orbit routes requests to its provider automatically.");
-    if (m_models->completer()) { m_models->completer()->setCaseSensitivity(Qt::CaseInsensitive); m_models->completer()->setFilterMode(Qt::MatchContains); m_models->completer()->setCompletionMode(QCompleter::PopupCompletion); }
+    // Keep the model catalog as the source of truth, but expose a provider-first
+    // menu so the popup never dumps every provider's models into one long list.
+    m_models=new QComboBox(main);
+    m_models->hide();
+    m_modelSwitcher=button("Choose model  ▾","ModelSwitcher",main);
+    m_modelSwitcher->setMinimumWidth(220);
+    m_modelSwitcher->setMaximumWidth(360);
+    m_modelSwitcher->setToolTip("Hover a provider to see its available models.");
+    connect(m_modelSwitcher,&QPushButton::clicked,this,[this]() {
+        QMenu menu(m_modelSwitcher);
+        QSettings settings;
+        const bool localOnly=settings.value("localOnlyMode",false).toBool();
+        for(const QString &providerName : ProviderClient::providers()) {
+            const bool localProvider=providerName=="Ollama (local)" || providerName=="LM Studio (local)" ||
+                providerName=="llama.cpp (local)" || providerName=="vLLM (local)" || providerName=="LocalAI";
+            if(localOnly && !localProvider) continue;
+            QStringList availableModels;
+            for(int i=0;i<m_models->count();++i) {
+                if(m_models->itemData(i,Qt::UserRole).toString()==providerName) {
+                    const QString modelName=m_models->itemData(i,Qt::UserRole+1).toString();
+                    if(!modelName.isEmpty()) availableModels.append(modelName);
+                }
+            }
+            if(availableModels.isEmpty()) continue;
+            QMenu *providerMenu=menu.addMenu(providerName);
+            for(const QString &modelName : availableModels) {
+                QAction *action=providerMenu->addAction(modelName);
+                action->setCheckable(true);
+                action->setChecked(m_models->currentData(Qt::UserRole).toString()==providerName &&
+                                   m_models->currentData(Qt::UserRole+1).toString()==modelName);
+                connect(action,&QAction::triggered,this,[this,providerName,modelName]() {
+                    for(int i=0;i<m_models->count();++i) {
+                        if(m_models->itemData(i,Qt::UserRole).toString()==providerName &&
+                           m_models->itemData(i,Qt::UserRole+1).toString()==modelName) {
+                            m_models->setCurrentIndex(i);
+                            break;
+                        }
+                    }
+                });
+            }
+        }
+        if(menu.isEmpty()) menu.addAction("No models discovered yet")->setEnabled(false);
+        menu.addSeparator();
+        QAction *downloadAction=menu.addAction("Download local model…");
+        connect(downloadAction,&QAction::triggered,this,[this]() { showModelManager(); });
+        menu.exec(m_modelSwitcher->mapToGlobal(QPoint(0,m_modelSwitcher->height())));
+    });
     connect(m_models,qOverload<int>(&QComboBox::currentIndexChanged),this,[this](int index){
         if(index<0 || !m_models->itemData(index,Qt::UserRole).isValid()) return;
         const QString provider=m_models->itemData(index,Qt::UserRole).toString();
         const QString model=m_models->itemData(index,Qt::UserRole+1).toString();
+        if(model.isEmpty()) return;
+        m_modelSwitcher->setText(QString("%1  ▾").arg(model));
         QSettings().setValue(QString("defaultModel/%1").arg(provider),model);
         if(m_provider->currentText()!=provider) {
             const QSignalBlocker providerBlocker(m_provider);
@@ -454,7 +516,7 @@ void MainWindow::buildUi() {
             m_status->setText(QString("●  Selected %1").arg(provider));
         }
     });
-    top->addWidget(m_models);
+    top->addWidget(m_modelSwitcher);
     m_status=new QLabel("●  Connecting to Ollama…",main);m_status->setObjectName("Muted");m_status->setWordWrap(true);m_status->setMinimumHeight(22);ml->addLayout(top);ml->addWidget(m_status);
     m_chatTitle=new QLabel("New conversation",main);m_chatTitle->setStyleSheet("font-size:13px;font-weight:600;");ml->addWidget(m_chatTitle);
     m_scroll=new QScrollArea(main);m_scroll->setWidgetResizable(true);m_scroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
@@ -509,14 +571,16 @@ void MainWindow::refreshModels(){
     m_status->setText("●  Discovering available models…");
     // Discover local runtimes automatically. Query hosted providers only when an API key
     // is configured, avoiding needless authentication failures on a fresh install.
+    const bool localOnly = QSettings().value("localOnlyMode", false).toBool();
     for (const QString &provider : ProviderClient::providers()) {
         const bool local = provider == "Ollama (local)" || provider == "LM Studio (local)" ||
             provider == "llama.cpp (local)" || provider == "vLLM (local)" || provider == "LocalAI";
+        if (localOnly && !local) continue;
         if (!local && storedApiKey(provider).isEmpty()) continue;
-        m_providerClient.configure(provider, providerEndpoint(provider), storedApiKey(provider));
-        m_providerClient.refreshModels();
+        // Discovery is independent of the active chat configuration. Do not
+        // reconfigure the chat client while enumerating provider catalogs.
+        m_providerClient.refreshModels(provider, providerEndpoint(provider), storedApiKey(provider));
     }
-    m_providerClient.configure(activeProvider, providerEndpoint(activeProvider), storedApiKey(activeProvider));
 }
 void MainWindow::showModelManager(){ ModelManagerDialog dialog(this); dialog.exec(); refreshModels(); }
 void MainWindow::checkForUpdates(bool userInitiated) {
@@ -674,6 +738,15 @@ void MainWindow::sendMessage() {
     if (prompt.isEmpty() && m_pendingAttachments.isEmpty()) return;
     if (m_models->currentText().isEmpty() || !m_models->currentData(Qt::UserRole).isValid()) {
         QMessageBox::information(this, "No model selected", "Choose a model from the selector. Open Model Manager to add a local model, or Settings to configure a hosted provider.");
+        return;
+    }
+
+    const QString selectedProvider = m_models->currentData(Qt::UserRole).toString();
+    const bool localProvider = selectedProvider == "Ollama (local)" || selectedProvider == "LM Studio (local)" ||
+        selectedProvider == "llama.cpp (local)" || selectedProvider == "vLLM (local)" || selectedProvider == "LocalAI";
+    if (QSettings().value("localOnlyMode", false).toBool() && !localProvider) {
+        QMessageBox::warning(this, "Local-only mode",
+            "Local-only mode is enabled. Select a model from a local runtime; hosted providers are blocked.");
         return;
     }
 
@@ -841,7 +914,6 @@ void MainWindow::sendMessage() {
     m_input->setEnabled(false);
     if (m_attachButton) m_attachButton->setEnabled(false);
     if (m_stop) { m_stop->setEnabled(true); m_stop->setText("Stop"); m_stop->setVisible(true); }
-    const QString selectedProvider = m_models->currentData(Qt::UserRole).toString();
     const QString selectedModel = m_models->currentData(Qt::UserRole+1).toString();
     m_providerClient.configure(selectedProvider, providerEndpoint(selectedProvider), storedApiKey(selectedProvider));
     m_providerClient.chat(selectedModel, apiMessages(), m_thinking->isChecked(), m_temperature->value()/10.0,
@@ -940,6 +1012,17 @@ void MainWindow::showSettings() {
     QSettings settings;int themeIndex=theme->findText(settings.value("theme","Eclipse Dark").toString());if(themeIndex>=0)theme->setCurrentIndex(themeIndex);
     connect(theme,&QComboBox::currentTextChanged,this,[this](const QString &name){applyTheme(name);});
     auto *provider = new QComboBox(&dialog); provider->addItems(ProviderClient::providers()); provider->setCurrentText(m_provider->currentText());
+    auto *localOnly = new QCheckBox("Local-only mode (block hosted chat models)", &dialog);
+    localOnly->setChecked(settings.value("localOnlyMode", false).toBool());
+    localOnly->setToolTip("When enabled, chat discovery and model selection are restricted to local runtimes. No hosted chat fallback is allowed.");
+    connect(localOnly, &QCheckBox::toggled, &dialog, [provider](bool enabled) {
+        if (enabled) {
+            const QStringList localProviders = {"Ollama (local)", "LM Studio (local)", "llama.cpp (local)", "vLLM (local)", "LocalAI"};
+            if (!localProviders.contains(provider->currentText())) provider->setCurrentText("Ollama (local)");
+        }
+        provider->setEnabled(!enabled);
+    });
+    provider->setEnabled(!localOnly->isChecked());
     auto *endpoint = new QLineEdit(providerEndpoint(provider->currentText()), &dialog);
     auto *apiKey = new QLineEdit(storedApiKey(provider->currentText()), &dialog); apiKey->setEchoMode(QLineEdit::Password); apiKey->setPlaceholderText("Key for the selected chat provider");
     connect(provider, &QComboBox::currentTextChanged, &dialog, [endpoint, apiKey](const QString &name) { endpoint->setText(providerEndpoint(name)); apiKey->setText(storedApiKey(name)); });
@@ -1001,13 +1084,14 @@ void MainWindow::showSettings() {
     auto *historyLimit=new QComboBox(&dialog);historyLimit->addItem("10 conversations",10);historyLimit->addItem("20 conversations",20);historyLimit->addItem("30 conversations",30);
     int limitIndex=historyLimit->findData(settings.value("historyLimit",30));if(limitIndex>=0)historyLimit->setCurrentIndex(limitIndex);
     auto *clearHistory=button("Delete all saved conversations","", &dialog);
-    form->addRow("Appearance",theme);form->addRow("Chat provider",provider);form->addRow("Chat API endpoint",endpoint);form->addRow("Chat provider API key",apiKey);form->addRow("Speech recognition provider",recognitionProvider);form->addRow("Speech recognition API key",recognitionKey);form->addRow("Voice generation provider",synthesisProvider);form->addRow("Voice generation API key",synthesisKey);form->addRow("Voice",voiceId);form->addRow("",refreshVoices);form->addRow("",previewVoice);form->addRow("",voiceStatus);form->addRow("Context window (tokens)",contextLength);form->addRow("Keep recent chats",historyLimit);layout->addLayout(form);
+    form->addRow("Appearance",theme);form->addRow("",localOnly);form->addRow("Chat provider",provider);form->addRow("Chat API endpoint",endpoint);form->addRow("Chat provider API key",apiKey);form->addRow("Speech recognition provider",recognitionProvider);form->addRow("Speech recognition API key",recognitionKey);form->addRow("Voice generation provider",synthesisProvider);form->addRow("Voice generation API key",synthesisKey);form->addRow("Voice",voiceId);form->addRow("",refreshVoices);form->addRow("",previewVoice);form->addRow("",voiceStatus);form->addRow("Context window (tokens)",contextLength);form->addRow("Keep recent chats",historyLimit);layout->addLayout(form);
     auto *privacy=new QLabel("Chats and preferences are stored locally. Prompts are sent to the selected provider; cloud providers receive prompts over the internet.",&dialog);privacy->setWordWrap(true);privacy->setObjectName("Muted");layout->addWidget(privacy);layout->addWidget(clearHistory);
     auto *buttons=new QDialogButtonBox(QDialogButtonBox::Save|QDialogButtonBox::Cancel,&dialog);layout->addWidget(buttons);
     connect(clearHistory,&QPushButton::clicked,&dialog,[this,&dialog](){if(QMessageBox::question(&dialog,"Delete saved chats","Permanently delete all saved conversation history?")==QMessageBox::Yes){QSettings s;const auto ids=s.value("conversationIds").toStringList();for(const auto &id:ids)s.remove("conversations/"+id);s.remove("conversationIds");m_historyIds.clear();rebuildHistory();}});
     connect(buttons,&QDialogButtonBox::rejected,&dialog,[this,&dialog,&settings](){applyTheme(settings.value("theme","Eclipse Dark").toString());dialog.reject();});
-    connect(buttons,&QDialogButtonBox::accepted,&dialog,[this,&dialog,theme,provider,endpoint,apiKey,recognitionProvider,recognitionKey,synthesisProvider,synthesisKey,voiceId,contextLength,historyLimit](){
+    connect(buttons,&QDialogButtonBox::accepted,&dialog,[this,&dialog,theme,provider,localOnly,endpoint,apiKey,recognitionProvider,recognitionKey,synthesisProvider,synthesisKey,voiceId,contextLength,historyLimit](){
         QSettings s;
+        s.setValue("localOnlyMode", localOnly->isChecked());
         s.setValue("provider",provider->currentText());
         s.setValue(QStringLiteral("providers/%1/endpoint").arg(provider->currentText()),endpoint->text().trimmed());
         storeApiKey(provider->currentText(),apiKey->text().trimmed());

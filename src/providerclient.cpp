@@ -48,6 +48,10 @@ void ProviderClient::configure(const QString &provider, const QString &endpoint,
     m_provider = provider;
     m_endpoint = endpoint.trimmed();
     while (m_endpoint.endsWith('/')) m_endpoint.chop(1);
+    // Native Ollama routes are /api/..., even if the user entered its
+    // OpenAI-compatible /v1 base URL in settings.
+    if (provider == "Ollama (local)" && m_endpoint.endsWith("/v1"))
+        m_endpoint.chop(3);
     m_apiKey = apiKey.trimmed();
 }
 
@@ -309,7 +313,11 @@ void ProviderClient::processLine(const QByteArray &line)
     const QJsonObject root = doc.object();
     if (root.contains("error")) {
         m_hadError = true;
-        emit errorOccurred(root.value("error").toObject().value("message").toString(root.value("error").toString()));
+        const QJsonValue errorValue = root.value("error");
+        const QString errorMessage = errorValue.isObject()
+            ? errorValue.toObject().value("message").toString()
+            : errorValue.toString();
+        emit errorOccurred(errorMessage.isEmpty() ? QStringLiteral("Ollama returned an unspecified API error.") : errorMessage);
         return;
     }
     const QJsonObject message = root.value("message").toObject();

@@ -239,25 +239,15 @@ MainWindow::MainWindow(QWidget *parent):QMainWindow(parent) {
             providerModels.removeDuplicates();
             providerModels.sort(Qt::CaseInsensitive);
             if (providerModels.isEmpty()) continue;
-            // A provider-only parent row makes the selector feel grouped. Hovering it
-            // reveals that provider's complete cached model list in the native tooltip.
-            m_models->addItem(providerName);
-            int providerRow = m_models->count() - 1;
-            m_models->setItemData(providerRow, providerName, Qt::UserRole);
-            m_models->setItemData(providerRow, QString{}, Qt::UserRole + 1);
-            m_models->setItemData(providerRow, QStringLiteral("Provider: %1\\nAvailable models:\\n• %2")
-                .arg(providerName, providerModels.join(QStringLiteral("\\n• "))), Qt::ToolTipRole);
-            if (auto *items = qobject_cast<QStandardItemModel *>(m_models->model())) {
-                if (auto *headerItem = items->item(providerRow)) {
-                    headerItem->setFlags(headerItem->flags() & ~Qt::ItemIsEnabled & ~Qt::ItemIsSelectable);
-                }
-            }
-            for(const QString &modelName : providerModels) {
-                m_models->addItem(QStringLiteral("    %1").arg(modelName));
-                const int row=m_models->count()-1;
-                m_models->setItemData(row,providerName,Qt::UserRole);
-                m_models->setItemData(row,modelName,Qt::UserRole+1);
-                m_models->setItemData(row,QStringLiteral("%1 model from %2").arg(modelName,providerName),Qt::ToolTipRole);
+            // The combo is the internal catalog, not the visible provider menu.
+            // Every selectable row must contain a real model ID. Provider grouping
+            // belongs exclusively in the model switcher's QMenu hierarchy.
+            for (const QString &modelName : providerModels) {
+                m_models->addItem(modelName);
+                const int row = m_models->count() - 1;
+                m_models->setItemData(row, providerName, Qt::UserRole);
+                m_models->setItemData(row, modelName, Qt::UserRole + 1);
+                m_models->setItemData(row, QStringLiteral("%1 model from %2").arg(modelName, providerName), Qt::ToolTipRole);
             }
         }
         if(m_models->count()==0) m_models->addItem("Discovering models…");

@@ -58,22 +58,30 @@ QString ProviderClient::apiUrl(const QString &path) const
 
 void ProviderClient::refreshModels()
 {
-    const bool ollama = m_provider == "Ollama (local)";
-    const bool gemini = m_provider == "Google Gemini";
-    const bool anthropic = m_provider == "Anthropic";
-    QNetworkRequest request(QUrl(apiUrl(ollama ? "/api/tags" : gemini ? "/models?pageSize=100" : "/models")));
+    refreshModels(m_provider, m_endpoint, m_apiKey);
+}
+
+void ProviderClient::refreshModels(const QString &provider, const QString &endpoint, const QString &apiKey)
+{
+    const bool ollama = provider == "Ollama (local)";
+    const bool gemini = provider == "Google Gemini";
+    const bool anthropic = provider == "Anthropic";
+    QString baseUrl = endpoint.trimmed();
+    while (baseUrl.endsWith('/')) baseUrl.chop(1);
+    if (ollama && baseUrl.endsWith("/v1")) baseUrl.chop(3);
+    QNetworkRequest request(QUrl(baseUrl + (ollama ? "/api/tags" : gemini ? "/models?pageSize=100" : "/models")));
     request.setTransferTimeout(10000);
     request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
-    if (!ollama && !m_apiKey.isEmpty()) {
+    if (!ollama && !apiKey.isEmpty()) {
         if (anthropic) {
-            request.setRawHeader("x-api-key", m_apiKey.toUtf8());
+            request.setRawHeader("x-api-key", apiKey.toUtf8());
             request.setRawHeader("anthropic-version", "2023-06-01");
-        } else if (gemini) request.setRawHeader("x-goog-api-key", m_apiKey.toUtf8());
-        else request.setRawHeader("Authorization", QByteArray("Bearer ") + m_apiKey.toUtf8());
+        } else if (gemini) request.setRawHeader("x-goog-api-key", apiKey.toUtf8());
+        else request.setRawHeader("Authorization", QByteArray("Bearer ") + apiKey.toUtf8());
     }
-    if (m_provider == "OpenRouter")
+    if (provider == "OpenRouter")
         request.setRawHeader("HTTP-Referer", "https://austinmcdonald.dev");
-    const QString requestedProvider = m_provider;
+    const QString requestedProvider = provider;
     auto *reply = m_network.get(request);
     connect(reply, &QNetworkReply::finished, this, [this, reply, ollama, gemini, requestedProvider]() {
         const QByteArray body = reply->readAll();
@@ -111,9 +119,10 @@ void ProviderClient::refreshModels()
 void ProviderClient::chat(const QString &model, const QJsonArray &messages, bool thinking, double temperature, int contextLength)
 {
     if (m_reply) { emit errorOccurred("A response is already running."); return; }
-    const bool ollama = m_provider == "Ollama (local)";
-    const bool anthropic = m_provider == "Anthropic";
-    const bool gemini = m_provider == "Google Gemini";
+    m_requestProvider = m_provider;
+    const bool ollama = m_requestProvider == "Ollama (local)";
+    const bool anthropic = m_requestProvider == "Anthropic";
+    const bool gemini = m_requestProvider == "Google Gemini";
     QJsonObject payload;
     payload.insert("model", model);
     payload.insert("messages", messages);
@@ -165,9 +174,9 @@ void ProviderClient::chat(const QString &model, const QJsonArray &messages, bool
             payload.insert("systemInstruction", system);
         }
     } else {
-        if (m_provider == "OpenAI") payload.insert("max_completion_tokens", 4096);
+        if (m_requestProvider == "OpenAI") payload.insert("max_completion_tokens", 4096);
         else payload.insert("max_tokens", 4096);
-        if (thinking && (m_provider == "OpenAI" || m_provider == "OpenRouter"))
+        if (thinking && (m_requestProvider == "OpenAI" || m_requestProvider == "OpenRouter"))
             payload.insert("reasoning_effort", "medium");
     }
 
@@ -182,7 +191,7 @@ void ProviderClient::chat(const QString &model, const QJsonArray &messages, bool
         } else if (gemini) request.setRawHeader("x-goog-api-key", m_apiKey.toUtf8());
         else request.setRawHeader("Authorization", QByteArray("Bearer ") + m_apiKey.toUtf8());
     }
-    if (m_provider == "OpenRouter") {
+    if (m_requestProvider == "OpenRouter") {
         request.setRawHeader("HTTP-Referer", "https://austinmcdonald.dev");
         request.setRawHeader("X-Title", "Eclipse Orbit");
     }
@@ -253,7 +262,7 @@ void ProviderClient::processLine(const QByteArray &line)
         const auto doc = QJsonDocument::fromJson(data);
         if (!doc.isObject()) return;
         const QJsonObject root = doc.object();
-        if (m_provider == "Anthropic") {
+        if (m_requestProvider == "Anthropic") {
             const QString type = root.value("type").toString();
             const QJsonObject delta = root.value("delta").toObject();
             if (type == "content_block_delta") {
@@ -265,7 +274,7 @@ void ProviderClient::processLine(const QByteArray &line)
             }
             return;
         }
-        if (m_provider == "Google Gemini") {
+        if (m_requestProvider == "Google Gemini") {
             const QJsonArray candidates = root.value("candidates").toArray();
             if (!candidates.isEmpty()) {
                 const QJsonArray parts = candidates.first().toObject().value("content").toObject().value("parts").toArray();

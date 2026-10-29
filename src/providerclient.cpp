@@ -202,14 +202,33 @@ void ProviderClient::chat(const QString &model, const QJsonArray &messages, bool
         if (!m_buffer.trimmed().isEmpty()) processLine(m_buffer.trimmed());
         auto *reply = m_reply;
         m_reply = nullptr;
-        if (reply->error() != QNetworkReply::NoError && !m_hadError && !m_timedOut)
-            emit errorOccurred(QString("Request failed: %1").arg(reply->errorString()));
+        const int httpStatus = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+        if (reply->error() != QNetworkReply::NoError && !m_hadError && !m_timedOut) {
+            QString detail = reply->errorString();
+            const QByteArray responseBody = reply->readAll().trimmed();
+            if (!responseBody.isEmpty()) {
+                const auto errorDoc = QJsonDocument::fromJson(responseBody);
+                if (errorDoc.isObject()) {
+                    const QJsonObject errorObject = errorDoc.object().value("error").toObject();
+                    const QString message = errorObject.value("message").toString();
+                    if (!message.isEmpty()) detail += QStringLiteral(" — %1").arg(message);
+                    else detail += QStringLiteral(" — %1").arg(QString::fromUtf8(responseBody.left(1200)));
+                } else {
+                    detail += QStringLiteral(" — %1").arg(QString::fromUtf8(responseBody.left(1200)));
+                }
+            }
+            if (httpStatus > 0)
+                emit errorOccurred(QStringLiteral("HTTP %1: %2").arg(httpStatus).arg(detail));
+            else
+                emit errorOccurred(QStringLiteral("Request failed: %1").arg(detail));
+        }
         reply->deleteLater();
         emit chatFinished();
     });
-    connect(m_reply, &QNetworkReply::errorOccurred, this, [this](QNetworkReply::NetworkError) {
-        if (m_reply && m_reply->error() != QNetworkReply::NoError) m_hadError = true;
-    });
+    // Do not mark the request as handled here. QNetworkReply::errorOccurred
+    // fires for transport/HTTP failures before finished(), but it carries no
+    // useful response body. finished() below owns reporting the final failure.
+
 }
 
 void ProviderClient::cancel() { m_inactivityTimer.stop(); if (m_reply) m_reply->abort(); }
